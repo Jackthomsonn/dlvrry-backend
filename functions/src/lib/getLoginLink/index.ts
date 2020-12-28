@@ -13,9 +13,13 @@ export const getLoginLink = functions.https.onRequest(async (request, response) 
 
   const user = await User.getUser(request.body.id);
 
-  const account = await stripe.accounts.retrieve(user.stripeAccountId);
+  if (user) {
+    const account = await stripe.accounts.retrieve(user.stripeAccountId);
 
-  const loginLink = await stripe.accounts.createLoginLink(account.id);
+    const loginLink = await stripe.accounts.createLoginLink(account.id);
 
-  response.send(loginLink);
+    response.send(loginLink);
+  } else {
+    response.send('No user exists');
+  }
 })

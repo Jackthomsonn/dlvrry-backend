@@ -7,4 +7,5 @@ export interface IUser {
   role: Role,
   stripeAccountId: string;
   accountLinkUrl: string;
+  customerId: string;
 }

@@ -1,4 +1,4 @@
-import { addFunds } from './lib/addFunds/index';
+import { addPaymentMethod } from './lib/addPaymentMethod/index';
 import { completeJob } from './lib/completeJob/index';
 import { createJob } from './lib/createJob/index';
 import { createUser } from './lib/createUser/index';
@@ -8,4 +8,4 @@ import { onboardDriver } from './lib/onboardDriver/index';
 import { refreshAccountLink } from './lib/refreshAccountLink/index';
 import { testStripe } from './lib/testStripe/index';
 
-export { onboardDriver, createUser, getStripeUserDetails, getLoginLink, refreshAccountLink, completeJob, addFunds, createJob, testStripe };
+export { onboardDriver, createUser, getStripeUserDetails, getLoginLink, refreshAccountLink, completeJob, createJob, testStripe, addPaymentMethod };

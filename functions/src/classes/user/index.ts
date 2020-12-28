@@ -14,20 +14,21 @@ export class User implements IUser {
     readonly email: string,
     readonly role: Role,
     readonly stripeAccountId: string,
-    readonly accountLinkUrl: string
+    readonly accountLinkUrl: string,
+    readonly customerId: string
   ) { }
 
   static getConverter() {
     return {
-      toFirestore({ name, email, role, stripeAccountId, accountLinkUrl }: User): admin.firestore.DocumentData {
-        return { name, email, role, stripeAccountId, accountLinkUrl };
+      toFirestore({ name, email, role, stripeAccountId, accountLinkUrl, customerId }: User): admin.firestore.DocumentData {
+        return { name, email, role, stripeAccountId, accountLinkUrl, customerId };
       },
       fromFirestore(
         snapshot: admin.firestore.QueryDocumentSnapshot<User>
       ): User {
-        const { name, email, role, stripeAccountId, accountLinkUrl } = snapshot.data();
+        const { name, email, role, stripeAccountId, accountLinkUrl, customerId } = snapshot.data();
 
-        return new User(name, email, role, stripeAccountId, accountLinkUrl);
+        return new User(name, email, role, stripeAccountId, accountLinkUrl, customerId);
       }
     }
   }
@@ -46,7 +47,7 @@ export class User implements IUser {
     });
   }
 
-  static getUser(userId: string): Promise<User> {
+  static getUser(userId: string): Promise<User | undefined> {
     return new Promise(resolve => {
       admin.firestore().collection('users').doc(userId).withConverter(this.getConverter()).onSnapshot(async (response) => {
         resolve(response.data());
@@ -58,9 +59,11 @@ export class User implements IUser {
     return new Promise(async (resolve) => {
       const user = await User.getUser(userId);
 
-      const account = await stripe.accounts.retrieve(user.stripeAccountId);
+      if (user) {
+        const account = await stripe.accounts.retrieve(user.stripeAccountId);
 
-      resolve(account);
+        resolve(account);
+      }
     });
   }
 
@@ -73,9 +76,10 @@ export class User implements IUser {
       id: user.uid,
       name: user.displayName || '',
       email: user.email || '',
-      stripeAccountId: '' || '',
-      accountLinkUrl: '' || '',
-      role: Role.RIDER
+      stripeAccountId: '',
+      accountLinkUrl: '',
+      role: Role.RIDER,
+      customerId: ''
     });
   }
 }

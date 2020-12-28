@@ -13,7 +13,11 @@ export const getStripeUserDetails = functions.https.onRequest(async (request, re
 
   const user = await User.getUser(request.body.id);
 
-  const account = await stripe.accounts.retrieve(user.stripeAccountId);
+  if (user) {
+    const account = await stripe.accounts.retrieve(user.stripeAccountId);
 
-  response.send(account);
+    response.send(account);
+  } else {
+    response.send('No user exists');
+  }
 })

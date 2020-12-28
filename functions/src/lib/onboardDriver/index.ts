@@ -16,16 +16,18 @@ export const onboardDriver = functions.https.onRequest(async (request, response)
   try {
     const user = await User.getUser(request.body.id);
 
-    if (user.stripeAccountId) {
-      response.send(user.accountLinkUrl);
+    if (user) {
+      if (user.stripeAccountId) {
+        response.send(user.accountLinkUrl);
 
-      return;
+        return;
+      }
     }
 
     const account = await stripe.accounts.create({
       type: 'express',
       email: request.body.email,
-      country: 'gbp',
+      country: 'gb',
       default_currency: 'gbp',
     });
 
@@ -34,9 +36,17 @@ export const onboardDriver = functions.https.onRequest(async (request, response)
       refresh_url: `${ refreshUrl }?account=${ account.id }`,
       return_url: returnUrl,
       type: 'account_onboarding',
-    })
+    });
 
-    await User.updateUser(request.body.id, { stripeAccountId: account.id, accountLinkUrl: accountLinks.url });
+    const customer = await stripe.customers.create({
+      email: request.body.email
+    });
+
+    await User.updateUser(request.body.id, {
+      stripeAccountId: account.id,
+      accountLinkUrl: accountLinks.url,
+      customerId: customer.id
+    });
 
     response.send(accountLinks.url);
   } catch (e) {

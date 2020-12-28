@@ -73,12 +73,19 @@ export class Job implements IJob {
 
     const rider = <IUser>riderDoc.data();
 
-    console.log(job.payout);
-    console.log((percentage.of(2.5, job.payout / 100) + 0.20) * 100);
+    const businessDoc = await admin.firestore().collection('users').doc(updatedJobDoc.businessId).get();
+
+    const business = <IUser>businessDoc.data();
+
+    const customer: any = await stripe.customers.retrieve(business.customerId);
+
     await stripe.paymentIntents.create({
       amount: job.payout,
-      application_fee_amount: (percentage.of(2.5, job.payout / 100) + 0.20) * 100,
+      application_fee_amount: Math.floor((percentage.of(6, job.payout / 100) + 0.20) * 100),
       payment_method_types: [ 'card' ],
+      payment_method: customer.invoice_settings.default_payment_method,
+      confirm: true,
+      customer: business.customerId,
       currency: 'gbp',
       transfer_data: {
         destination: rider.stripeAccountId

@@ -8,7 +8,7 @@ export const createJob = functions.https.onRequest(async (request, response) => 
     admin.initializeApp();
   }
 
-  await Job.createJob(request.body.job, request.body.businessId);
+  await Job.createJob(request.body.job, request.body.owner_id);
 
-  response.send({ completed: true });
+  response.send();
 })

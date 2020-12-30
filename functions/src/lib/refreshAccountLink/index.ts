@@ -14,8 +14,8 @@ export const refreshAccountLink = functions.https.onRequest(async (request, resp
 
   const accountLinks = await stripe.accountLinks.create({
     account: params.account,
-    refresh_url: `https://dlvrry-functions.ngrok.io/dlvrry-33018/us-central1/refreshAccountLink?account=${ params.account }`,
-    return_url: 'https://auth.expo.io/@jackthomson/dlvrry',
+    refresh_url: `${ functions.config().dlvrry.functions_url }/refreshAccountLink?account=${ params.account }`,
+    return_url: functions.config().dlvrry.return_url,
     type: 'account_onboarding',
   });
 

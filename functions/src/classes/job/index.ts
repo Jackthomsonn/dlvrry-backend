@@ -1,10 +1,7 @@
 import * as admin from 'firebase-admin';
-
-import { IJob } from '../../interfaces/IJob';
-import { IUser } from './../../interfaces/IUser';
-import { Status } from '../../enums/status/index';
+import { IJob, JobStatus } from 'dlvrry-common';
 import Stripe from 'stripe';
-const percentage = require('calculate-percentages');
+import { User } from './../user/index';
 
 const stripe: Stripe = require('stripe')(process.env.STRIPE_SECRET);
 
@@ -12,103 +9,117 @@ export class Job implements IJob {
   readonly id: string = '';
 
   constructor(
-    readonly businessName: string,
-    readonly businessId: string,
-    readonly driverId: string,
-    readonly customerLocation: admin.firestore.GeoPoint,
-    readonly pickupLocation: admin.firestore.GeoPoint,
-    readonly numberOfItems: number,
+    readonly owner_name: string,
+    readonly owner_id: string,
+    readonly rider_id: string,
+    readonly customer_location: admin.firestore.GeoPoint,
+    readonly pickup_location: admin.firestore.GeoPoint,
+    readonly number_of_items: number,
     readonly payout: number,
-    readonly status: Status,
+    readonly status: JobStatus,
     readonly cost: number
   ) { }
 
   static getConverter(): admin.firestore.FirestoreDataConverter<Job> {
     return {
-      toFirestore({ customerLocation, pickupLocation, numberOfItems, payout, status, cost }: Job): admin.firestore.DocumentData {
-        return { customerLocation, pickupLocation, numberOfItems, payout, status, cost };
+      toFirestore({ customer_location, pickup_location, number_of_items, payout, status, cost }: Job): admin.firestore.DocumentData {
+        return { customer_location, pickup_location, number_of_items, payout, status, cost };
       },
       fromFirestore(
         snapshot: admin.firestore.QueryDocumentSnapshot<Job>
       ): Job {
-        const { businessName, businessId, driverId, customerLocation, pickupLocation, numberOfItems, payout, status, cost } = snapshot.data();
+        const { owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, status, cost } = snapshot.data();
 
-        return new Job(businessName, businessId, driverId, customerLocation, pickupLocation, numberOfItems, payout, status, cost);
+        return new Job(owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, status, cost);
       }
     }
   }
 
   static getJobs(): Promise<Job[]> {
     return new Promise(resolve => {
-      admin.firestore().collection('jobs').withConverter(this.getConverter()).where('status', '==', Status.AWAITING_ACCEPTANCE).onSnapshot(async (response) => {
-        const collection = [];
+      admin
+        .firestore()
+        .collection('jobs')
+        .withConverter(this.getConverter())
+        .where('status', '==', JobStatus.PENDING)
+        .onSnapshot(async (response) => {
+          const collection = [];
 
-        for (const job of response.docs) {
-          collection.push(job.data());
-        }
+          for (const job of response.docs) {
+            collection.push(job.data());
+          }
 
-        resolve(collection);
-      });
+          resolve(collection);
+        });
     });
   }
 
-  static getJob(jobId: string): Promise<Job> {
+  static getJob(id: string): Promise<Job> {
     return new Promise<any>(resolve => {
-      admin.firestore().collection('jobs').doc(jobId).withConverter(this.getConverter()).onSnapshot(response => {
-        resolve(response.data());
-      });
+      admin
+        .firestore()
+        .collection('jobs')
+        .doc(id)
+        .withConverter(this.getConverter())
+        .onSnapshot(response => {
+          resolve(response.data());
+        });
     });
-  }
-
-  static acceptJob(jobId: string) {
-    admin.firestore().collection('jobs').doc(jobId).update({ status: Status.IN_PROGRESS })
   }
 
   static async completeJob(job: IJob) {
-    const jobDoc = await admin.firestore().collection('jobs').doc(job.id).get();
+    const job_doc = await Job.getJob(job.id);
+    const rider_doc = await User.getUser(job_doc.rider_id);
+    const owner_doc = await User.getUser(job_doc.owner_id);
 
-    const updatedJobDoc = <IJob>jobDoc.data();
+    await Job.createPaymentIntent(job, rider_doc, owner_doc);
 
-    const riderDoc = await admin.firestore().collection('users').doc(updatedJobDoc.driverId).get();
-
-    const rider = <IUser>riderDoc.data();
-
-    const businessDoc = await admin.firestore().collection('users').doc(updatedJobDoc.businessId).get();
-
-    const business = <IUser>businessDoc.data();
-
-    const customer: any = await stripe.customers.retrieve(business.customerId);
-
-    await stripe.paymentIntents.create({
-      amount: job.payout,
-      application_fee_amount: Math.floor((percentage.of(6, job.payout / 100) + 0.20) * 100),
-      payment_method_types: [ 'card' ],
-      payment_method: customer.invoice_settings.default_payment_method,
-      confirm: true,
-      customer: business.customerId,
-      currency: 'gbp',
-      transfer_data: {
-        destination: rider.stripeAccountId
-      },
-    });
-
-    await admin.firestore().collection('jobs').doc(jobDoc.id).update({ status: Status.COMPLETED })
+    return await Job.updateJob(job.id, { id: job.id, status: JobStatus.COMPLETED });
   }
 
-  static async createJob(job: IJob, businessId: string) {
-    const businessResponse = await admin.firestore().collection('users').doc(businessId).get();
-    const business = <IUser>businessResponse.data();
+  static async updateJob(id: string, job: Partial<IJob>): Promise<admin.firestore.WriteResult> {
+    return await admin
+      .firestore()
+      .collection('jobs')
+      .doc(id)
+      .update(job);
+  }
 
-    job.status = <any>'AWAITING_ACCEPTANCE';
-    job.businessId = businessId;
-    job.businessName = business.name;
-    job.pickupLocation = new admin.firestore.GeoPoint(50.440941, 50.440941);
-    job.customerLocation = new admin.firestore.GeoPoint(50.44437, -4.76287);
+  static async createJob(job: IJob, owner_id: string) {
+    const business = await User.getUser(owner_id);
 
-    return new Promise(async (resolve) => {
-      await admin.firestore().collection('jobs').add(job);
+    job.status = JobStatus.PENDING;
+    job.owner_id = owner_id;
+    job.owner_name = business.name;
+    job.pickup_location = new admin.firestore.GeoPoint(50.440941, 50.440941);
+    job.customer_location = new admin.firestore.GeoPoint(50.44437, -4.76287);
 
-      resolve({});
-    })
+    return await admin
+      .firestore()
+      .collection('jobs')
+      .add(job);
+  }
+
+  private static async createPaymentIntent(job: IJob, rider_doc: User, owner_doc: User) {
+    const remoteConfig = admin.remoteConfig();
+    const config = await remoteConfig.getTemplate();
+
+    const fee = Number((<any>config.parameters.application_fee.defaultValue).value);
+
+    const APPLICATION_FEE = Math.floor(fee * job.cost / 100 + 20);
+    const stripe_customer_object: any = await stripe.customers.retrieve(owner_doc.customer_id);
+
+    return stripe.paymentIntents.create({
+      amount: job.cost,
+      application_fee_amount: APPLICATION_FEE,
+      payment_method_types: [ 'card' ],
+      payment_method: stripe_customer_object.invoice_settings.default_payment_method,
+      confirm: true,
+      customer: owner_doc.customer_id,
+      currency: 'gbp', // This will need to be dynamic based on account location
+      transfer_data: {
+        destination: rider_doc.connected_account_id
+      },
+    });
   }
 }

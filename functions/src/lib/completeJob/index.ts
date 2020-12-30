@@ -10,5 +10,5 @@ export const completeJob = functions.https.onRequest(async (request, response) =
 
   await Job.completeJob(request.body.job);
 
-  response.send({ completed: true });
+  response.send();
 })

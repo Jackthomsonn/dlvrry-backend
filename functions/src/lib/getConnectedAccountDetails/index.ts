@@ -6,18 +6,14 @@ import { User } from '../../classes/user/index';
 
 const stripe: Stripe = require('stripe')(process.env.STRIPE_SECRET);
 
-export const getStripeUserDetails = functions.https.onRequest(async (request, response) => {
+export const getConnectedAccountDetails = functions.https.onRequest(async (request, response) => {
   if (!admin.apps.length) {
     admin.initializeApp();
   }
 
   const user = await User.getUser(request.body.id);
 
-  if (user) {
-    const account = await stripe.accounts.retrieve(user.stripeAccountId);
+  const account = await stripe.accounts.retrieve(user.connected_account_id);
 
-    response.send(account);
-  } else {
-    response.send('No user exists');
-  }
+  response.send(account);
 })

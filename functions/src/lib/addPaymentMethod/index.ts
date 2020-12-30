@@ -10,14 +10,16 @@ export const addPaymentMethod = functions.https.onRequest(async (request, respon
     admin.initializeApp();
   }
 
-  const paymentMethodId: any = request.query.id;
-  const customerId: any = request.query.customerId;
+  const payment_method_id: any = request.query.id;
+  const customer_id: any = request.query.customer_id;
 
-  await stripe.paymentMethods.attach(paymentMethodId, {
-    customer: customerId
+  await stripe.paymentMethods.attach(payment_method_id, { customer: customer_id });
+
+  await stripe.customers.update(customer_id, {
+    invoice_settings: {
+      default_payment_method: payment_method_id
+    }
   });
 
-  await stripe.customers.update(customerId, { invoice_settings: { default_payment_method: paymentMethodId } });
-
-  response.send({ done: true });
+  response.send();
 })

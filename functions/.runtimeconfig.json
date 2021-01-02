@@ -1,0 +1,6 @@
+{
+  "dlvrry": {
+    "functions_url": "https://dlvrry-functions.ngrok.io/dlvrry-33018/us-central1",
+    "return_url": "https://auth.expo.io/@jackthomson/dlvrry"
+  }
+}

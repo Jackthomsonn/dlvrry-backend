@@ -4,6 +4,7 @@ import { createJob } from './lib/createJob/index';
 import { createUser } from './lib/createUser/index';
 import { getConnectedAccountDetails } from './lib/getConnectedAccountDetails/index';
 import { getLoginLink } from './lib/getLoginLink/index';
+import { getPaymentCards } from './lib/getPaymentCards/index';
 import { onboardUser } from './lib/onboardUser';
 import { refreshAccountLink } from './lib/refreshAccountLink/index';
 import { testStripe } from './lib/testStripe/index';
@@ -16,5 +17,6 @@ export {
   refreshAccountLink, completeJob,
   createJob,
   testStripe,
-  addPaymentMethod
+  addPaymentMethod,
+  getPaymentCards
 };

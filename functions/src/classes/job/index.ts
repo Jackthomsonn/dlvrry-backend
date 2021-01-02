@@ -1,5 +1,5 @@
 import * as admin from 'firebase-admin';
-import { IJob, JobStatus } from 'dlvrry-common';
+import { IJob, JobStatus } from '@dlvrry/dlvrry-common';
 import Stripe from 'stripe';
 import { User } from './../user/index';
 

@@ -3,7 +3,7 @@
   "scripts": {
     "lint": "eslint \"src/**/*\"",
     "build": "tsc",
-    "serve": "concurrently \"firebase functions:config:set dlvrry.return_url='https://auth.expo.io/@jackthomson/dlvrry' dlvrry.functions_url='https://dlvrry-functions.ngrok.io/dlvrry-33018/us-central1'\" \"npm run build && firebase emulators:start --import=./seed --export-on-exit=./seed\" \"tsc --watch\"",
+    "serve": "concurrently \"npm run build && firebase emulators:start --import=./seed --export-on-exit=./seed\" \"tsc --watch\"",
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase functions:config:set dlvrry.return_url='https://auth.expo.io/@jackthomson/dlvrry' dlvrry.functions_url='dlvrry-33018/us-central1 && firebase deploy --only functions",
@@ -14,6 +14,7 @@
   },
   "main": "lib/index.js",
   "dependencies": {
+    "@dlvrry/dlvrry-common": "git+https://github.com/Jackthomsonn/dlvrry-common.git",
     "@types/cors": "^2.8.9",
     "axios": "^0.21.0",
     "calculate-percentages": "^1.0.0",
@@ -28,8 +29,7 @@
     "eslint": "^7.6.0",
     "eslint-plugin-import": "^2.22.0",
     "firebase-functions-test": "^0.2.0",
-    "typescript": "^3.8.0",
-    "dlvrry-common": "https://github.com/Jackthomsonn/dlvrry-common"
+    "typescript": "^3.8.0"
   },
   "private": true
 }

@@ -1,6 +1,6 @@
 import * as admin from 'firebase-admin';
 
-import { IUser, Role, VerificationStatus } from 'dlvrry-common';
+import { AccountType, IUser, VerificationStatus } from '@dlvrry/dlvrry-common';
 
 import Stripe from 'stripe';
 
@@ -12,7 +12,7 @@ export class User implements IUser {
   constructor(
     readonly name: string,
     readonly email: string,
-    readonly role: Role,
+    readonly account_type: AccountType,
     readonly connected_account_id: string,
     readonly account_link_url: string,
     readonly verification_status: VerificationStatus,
@@ -22,15 +22,15 @@ export class User implements IUser {
 
   static getConverter() {
     return {
-      toFirestore({ name, email, role, connected_account_id, account_link_url, customer_id, verification_status, verified }: User): admin.firestore.DocumentData {
-        return { name, email, role, connected_account_id, account_link_url, customer_id, verification_status, verified };
+      toFirestore({ name, email, account_type, connected_account_id, account_link_url, customer_id, verification_status, verified }: User): admin.firestore.DocumentData {
+        return { name, email, account_type, connected_account_id, account_link_url, customer_id, verification_status, verified };
       },
       fromFirestore(
         snapshot: admin.firestore.QueryDocumentSnapshot<User>
       ): User {
-        const { name, email, role, connected_account_id, account_link_url, customer_id, verification_status, verified } = snapshot.data();
+        const { name, email, account_type, connected_account_id, account_link_url, customer_id, verification_status, verified } = snapshot.data();
 
-        return new User(name, email, role, connected_account_id, account_link_url, verification_status, verified, customer_id);
+        return new User(name, email, account_type, connected_account_id, account_link_url, verification_status, verified, customer_id);
       }
     }
   }
@@ -86,7 +86,7 @@ export class User implements IUser {
         email: user.email || '',
         connected_account_id: '',
         account_link_url: '',
-        role: Role.NONE,
+        account_type: AccountType.NONE,
         customer_id: '',
         verification_status: VerificationStatus.PENDING,
         verified: false

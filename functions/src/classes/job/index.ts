@@ -85,7 +85,7 @@ export class Job implements IJob {
       .update(job);
   }
 
-  static async createJob(job: IJob, owner_id: string) {
+  static async createJob(job: IJob, owner_id: string): Promise<FirebaseFirestore.DocumentReference<FirebaseFirestore.DocumentData>> {
     const business = await User.getUser(owner_id);
 
     job.status = JobStatus.PENDING;
@@ -97,6 +97,7 @@ export class Job implements IJob {
     return await admin
       .firestore()
       .collection('jobs')
+      .withConverter(this.getConverter())
       .add(job);
   }
 

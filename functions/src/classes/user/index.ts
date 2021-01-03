@@ -113,7 +113,7 @@ export class User implements IUser {
       type: 'express',
       email: email,
       country: 'gb',
-      default_currency: 'gbp',
+      default_currency: 'gbp'
     });
 
     const account_links = await stripe.accountLinks.create({

@@ -1,13 +1,11 @@
 import * as admin from 'firebase-admin';
-import { IJob, JobStatus } from '@dlvrry/dlvrry-common';
+import { IJob, JobStatus } from 'dlvrry-common';
 import Stripe from 'stripe';
 import { User } from './../user/index';
 
 const stripe: Stripe = require('stripe')(process.env.STRIPE_SECRET);
 
 export class Job implements IJob {
-  readonly id: string = '';
-
   constructor(
     readonly owner_name: string,
     readonly owner_id: string,
@@ -16,22 +14,23 @@ export class Job implements IJob {
     readonly pickup_location: admin.firestore.GeoPoint,
     readonly number_of_items: number,
     readonly payout: number,
-    readonly status: JobStatus,
-    readonly cost: number
+    readonly cost: number,
+    readonly status?: JobStatus | undefined,
+    readonly id?: string,
   ) { }
 
   static getConverter(): admin.firestore.FirestoreDataConverter<Job> {
     return {
-      toFirestore({ customer_location, pickup_location, number_of_items, payout, status, cost }: Job): admin.firestore.DocumentData {
-        return { customer_location, pickup_location, number_of_items, payout, status, cost };
+      toFirestore({ owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, cost, status, id }: Job): admin.firestore.DocumentData {
+        return { owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, cost, status, id };
       },
       fromFirestore(
         snapshot: admin.firestore.QueryDocumentSnapshot<Job>
       ): Job {
-        const { owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, status, cost } = snapshot.data();
+        const { owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, cost, status, id } = snapshot.data();
 
-        return new Job(owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, status, cost);
-      }
+        return new Job(owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, cost, status, id);
+      },
     }
   }
 
@@ -68,6 +67,10 @@ export class Job implements IJob {
   }
 
   static async completeJob(job: IJob) {
+    if (!job.id) {
+      return;
+    }
+
     const job_doc = await Job.getJob(job.id);
     const rider_doc = await User.getUser(job_doc.rider_id);
     const owner_doc = await User.getUser(job_doc.owner_id);
@@ -82,23 +85,30 @@ export class Job implements IJob {
       .firestore()
       .collection('jobs')
       .doc(id)
+      .withConverter(Job.getConverter())
       .update(job);
   }
 
-  static async createJob(job: IJob, owner_id: string): Promise<FirebaseFirestore.DocumentReference<FirebaseFirestore.DocumentData>> {
+  static async createJob(job: IJob, owner_id: string): Promise<admin.firestore.WriteResult> {
     const business = await User.getUser(owner_id);
 
+    job.rider_id = '';
     job.status = JobStatus.PENDING;
     job.owner_id = owner_id;
     job.owner_name = business.name;
     job.pickup_location = new admin.firestore.GeoPoint(50.440941, 50.440941);
     job.customer_location = new admin.firestore.GeoPoint(50.44437, -4.76287);
 
-    return await admin
+    const doc = admin
       .firestore()
       .collection('jobs')
-      .withConverter(this.getConverter())
-      .add(job);
+      .doc()
+
+    job.id = doc.id;
+
+    return await doc
+      .withConverter(Job.getConverter())
+      .create(job)
   }
 
   private static async createPaymentIntent(job: IJob, rider_doc: User, owner_doc: User) {
@@ -119,7 +129,7 @@ export class Job implements IJob {
       customer: owner_doc.customer_id,
       currency: 'gbp', // This will need to be dynamic based on account location
       transfer_data: {
-        destination: rider_doc.connected_account_id
+        destination: rider_doc.connected_account_id,
       },
     });
   }

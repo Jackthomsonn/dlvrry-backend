@@ -12,7 +12,7 @@ export const getPaymentCards = functions.https.onRequest(async (request, respons
 
   const paymentMethods = await stripe.paymentMethods.list({
     customer: request.body.customer_id,
-    type: 'card'
+    type: 'card',
   });
 
   response.send(paymentMethods);

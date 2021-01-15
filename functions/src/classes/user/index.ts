@@ -1,14 +1,12 @@
 import * as admin from 'firebase-admin';
 
-import { AccountType, IUser, VerificationStatus } from '@dlvrry/dlvrry-common';
+import { AccountType, IUser, VerificationStatus } from 'dlvrry-common';
 
 import Stripe from 'stripe';
 
 const stripe: Stripe = require('stripe')(process.env.STRIPE_SECRET);
 
 export class User implements IUser {
-  readonly id: string = '';
-
   constructor(
     readonly name: string,
     readonly email: string,
@@ -16,22 +14,24 @@ export class User implements IUser {
     readonly connected_account_id: string,
     readonly account_link_url: string,
     readonly verification_status: VerificationStatus,
+    readonly cancelled_jobs: number,
     readonly verified: boolean,
     readonly customer_id: string,
+    readonly id?: string
   ) { }
 
   static getConverter() {
     return {
-      toFirestore({ name, email, account_type, connected_account_id, account_link_url, customer_id, verification_status, verified }: User): admin.firestore.DocumentData {
-        return { name, email, account_type, connected_account_id, account_link_url, customer_id, verification_status, verified };
+      toFirestore({ name, email, account_type, connected_account_id, account_link_url, verification_status, cancelled_jobs, verified, customer_id, id }: User): admin.firestore.DocumentData {
+        return { name, email, account_type, connected_account_id, account_link_url, verification_status, cancelled_jobs, verified, customer_id, id };
       },
       fromFirestore(
         snapshot: admin.firestore.QueryDocumentSnapshot<User>
       ): User {
-        const { name, email, account_type, connected_account_id, account_link_url, customer_id, verification_status, verified } = snapshot.data();
+        const { name, email, account_type, connected_account_id, account_link_url, verification_status, cancelled_jobs, verified, customer_id, id } = snapshot.data();
 
-        return new User(name, email, account_type, connected_account_id, account_link_url, verification_status, verified, customer_id);
-      }
+        return new User(name, email, account_type, connected_account_id, account_link_url, verification_status, cancelled_jobs, verified, customer_id, id);
+      },
     }
   }
 
@@ -89,7 +89,8 @@ export class User implements IUser {
         account_type: AccountType.NONE,
         customer_id: '',
         verification_status: VerificationStatus.PENDING,
-        verified: false
+        cancelled_jobs: 0,
+        verified: false,
       });
   }
 
@@ -113,7 +114,7 @@ export class User implements IUser {
       type: 'express',
       email: email,
       country: 'gb',
-      default_currency: 'gbp'
+      default_currency: 'gbp',
     });
 
     const account_links = await stripe.accountLinks.create({
@@ -124,13 +125,13 @@ export class User implements IUser {
     });
 
     const customer = await stripe.customers.create({
-      email: email
+      email: email,
     });
 
     await User.updateUser(id, {
       connected_account_id: account.id,
       account_link_url: account_links.url,
-      customer_id: customer.id
+      customer_id: customer.id,
     });
 
     return Promise.resolve(account_links.url);

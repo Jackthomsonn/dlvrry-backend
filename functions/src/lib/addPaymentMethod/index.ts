@@ -17,8 +17,8 @@ export const addPaymentMethod = functions.https.onRequest(async (request, respon
 
   await stripe.customers.update(customer_id, {
     invoice_settings: {
-      default_payment_method: payment_method_id
-    }
+      default_payment_method: payment_method_id,
+    },
   });
 
   response.send();

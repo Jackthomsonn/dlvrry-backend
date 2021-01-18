@@ -143,7 +143,7 @@ export class Job implements IJob {
       transfer_data: {
         destination: rider_doc.connected_account_id,
       },
-      off_session: true
+      off_session: true,
     });
   }
 }

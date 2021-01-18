@@ -6,8 +6,7 @@ export class Response {
   static fail(error?: any) {
     return {
       status: error.status ? error.status : 500,
-      message: error.message ? error.message : 'Internal Server Error'
+      message: error.message ? error.message : 'Internal Server Error',
     };
-
   }
 }

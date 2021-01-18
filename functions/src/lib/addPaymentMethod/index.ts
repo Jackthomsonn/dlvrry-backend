@@ -26,8 +26,8 @@ export const addPaymentMethod = functions.https.onRequest(async (request, respon
 
     await stripe.customers.update(customer_id, {
       invoice_settings: {
-        default_payment_method: payment_method_id
-      }
+        default_payment_method: payment_method_id,
+      },
     });
 
     const paymentIntent = await stripe.paymentIntents.create({
@@ -36,7 +36,7 @@ export const addPaymentMethod = functions.https.onRequest(async (request, respon
       customer: customer_id,
       confirm: true,
       currency: 'gbp',
-      setup_future_usage: 'off_session'
+      setup_future_usage: 'off_session',
     });
 
     if (paymentIntent.next_action) {

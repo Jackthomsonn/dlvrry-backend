@@ -1,1 +1,0 @@
-{"version":3,"file":"signatureInvalid.js","sourceRoot":"","sources":["../../src/errors/signatureInvalid.ts"],"names":[],"mappings":";;;AAAA,MAAa,gBAAiB,SAAQ,KAAK;IACzC;QACE,KAAK,EAAE,CAAC;QACR,IAAI,CAAC,IAAI,GAAG,kBAAkB,CAAC;QAC/B,IAAI,CAAC,OAAO,GAAG,sCAAsC,CAAA;IACvD,CAAC;CACF;AAND,4CAMC"}

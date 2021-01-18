@@ -1,3 +1,4 @@
 functions/*.log
 functions/node_modules
+functions/lib
 .vscode

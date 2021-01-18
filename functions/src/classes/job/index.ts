@@ -1,7 +1,11 @@
 import * as admin from 'firebase-admin';
+
 import { IJob, JobStatus } from 'dlvrry-common';
+
+import { JobNotFound } from './../../errors/jobNotFound';
 import Stripe from 'stripe';
 import { User } from './../user/index';
+import { UserNotFound } from './../../errors/userNotFound';
 
 const stripe: Stripe = require('stripe')(process.env.STRIPE_SECRET);
 
@@ -34,48 +38,51 @@ export class Job implements IJob {
     }
   }
 
-  static getJobs(): Promise<Job[]> {
-    return new Promise(resolve => {
-      admin
-        .firestore()
-        .collection('jobs')
-        .withConverter(this.getConverter())
-        .where('status', '==', JobStatus.PENDING)
-        .onSnapshot(async (response) => {
-          const collection = [];
-
-          for (const job of response.docs) {
-            collection.push(job.data());
-          }
-
-          resolve(collection);
-        });
-    });
+  static getJobs(): Promise<FirebaseFirestore.QuerySnapshot<IJob>> {
+    return admin
+      .firestore()
+      .collection('jobs')
+      .withConverter(this.getConverter())
+      .where('status', '==', JobStatus.PENDING)
+      .get()
   }
 
-  static getJob(id: string): Promise<Job> {
-    return new Promise<any>(resolve => {
-      admin
-        .firestore()
-        .collection('jobs')
-        .doc(id)
-        .withConverter(this.getConverter())
-        .onSnapshot(response => {
-          resolve(response.data());
-        });
-    });
+  static getJob(id: string): Promise<FirebaseFirestore.DocumentSnapshot<IJob>> {
+    return admin
+      .firestore()
+      .collection('jobs')
+      .withConverter(this.getConverter())
+      .doc(id)
+      .get();
   }
 
   static async completeJob(job: IJob) {
     if (!job.id) {
-      return;
+      throw new JobNotFound();
     }
 
     const job_doc = await Job.getJob(job.id);
-    const rider_doc = await User.getUser(job_doc.rider_id);
-    const owner_doc = await User.getUser(job_doc.owner_id);
+    const job_doc_data = job_doc.data();
 
-    await Job.createPaymentIntent(job, rider_doc, owner_doc);
+    if (!job_doc_data) {
+      throw new JobNotFound();
+    }
+
+    const rider_doc = await User.getUser(job_doc_data.rider_id);
+    const rider_doc_data = rider_doc.data();
+
+    if (!rider_doc_data) {
+      throw new UserNotFound();
+    }
+
+    const owner_doc = await User.getUser(job_doc_data.owner_id);
+    const owner_doc_data = owner_doc.data();
+
+    if (!owner_doc_data) {
+      throw new UserNotFound();
+    }
+
+    await Job.createPaymentIntent(job_doc_data, rider_doc_data, owner_doc_data);
 
     return await Job.updateJob(job.id, { id: job.id, status: JobStatus.COMPLETED });
   }
@@ -84,25 +91,30 @@ export class Job implements IJob {
     return await admin
       .firestore()
       .collection('jobs')
-      .doc(id)
       .withConverter(Job.getConverter())
+      .doc(id)
       .update(job);
   }
 
   static async createJob(job: IJob, owner_id: string): Promise<admin.firestore.WriteResult> {
     const business = await User.getUser(owner_id);
+    const business_data = business.data();
+
+    if (!business_data) {
+      throw new UserNotFound();
+    }
 
     job.rider_id = '';
     job.status = JobStatus.PENDING;
     job.owner_id = owner_id;
-    job.owner_name = business.name;
-    job.pickup_location = new admin.firestore.GeoPoint(50.440941, 50.440941);
-    job.customer_location = new admin.firestore.GeoPoint(50.44437, -4.76287);
+    job.owner_name = business_data.name;
+    job.pickup_location = new admin.firestore.GeoPoint(job.pickup_location.latitude, job.pickup_location.longitude);
+    job.customer_location = new admin.firestore.GeoPoint(job.customer_location.latitude, job.customer_location.longitude);
 
     const doc = admin
       .firestore()
       .collection('jobs')
-      .doc()
+      .doc();
 
     job.id = doc.id;
 
@@ -131,6 +143,7 @@ export class Job implements IJob {
       transfer_data: {
         destination: rider_doc.connected_account_id,
       },
+      off_session: true
     });
   }
 }

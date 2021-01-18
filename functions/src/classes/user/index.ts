@@ -3,6 +3,7 @@ import * as admin from 'firebase-admin';
 import { AccountType, IUser, VerificationStatus } from 'dlvrry-common';
 
 import Stripe from 'stripe';
+import { UserNotFound } from '../../errors/userNotFound';
 
 const stripe: Stripe = require('stripe')(process.env.STRIPE_SECRET);
 
@@ -35,41 +36,28 @@ export class User implements IUser {
     }
   }
 
-  static getUsers(): Promise<User[]> {
-    return new Promise(resolve => {
-      admin
-        .firestore()
-        .collection('users')
-        .withConverter(this.getConverter())
-        .onSnapshot(async (response) => {
-          const collection = [];
-
-          for (const user of response.docs) {
-            collection.push(user.data());
-          }
-
-          resolve(collection);
-        });
-    });
+  static getUsers(): Promise<FirebaseFirestore.QuerySnapshot<User>> {
+    return admin
+      .firestore()
+      .collection('users')
+      .withConverter(this.getConverter())
+      .get()
   }
 
-  static getUser(id: string): Promise<User> {
-    return new Promise<any>(resolve => {
-      admin
-        .firestore()
-        .collection('users')
-        .doc(id)
-        .withConverter(this.getConverter())
-        .onSnapshot(async (response) => {
-          resolve(response.data());
-        });
-    });
+  static getUser(id: string): Promise<FirebaseFirestore.DocumentSnapshot<User>> {
+    return admin
+      .firestore()
+      .collection('users')
+      .withConverter(this.getConverter())
+      .doc(id)
+      .get()
   }
 
   static updateUser(id: string, user: Partial<IUser>): Promise<admin.firestore.WriteResult> {
     return admin
       .firestore()
       .collection('users')
+      .withConverter(this.getConverter())
       .doc(id)
       .update(user);
   }
@@ -78,8 +66,8 @@ export class User implements IUser {
     return admin
       .firestore()
       .collection('users')
-      .doc(user.uid)
       .withConverter(this.getConverter())
+      .doc(user.uid)
       .create({
         id: user.uid,
         name: user.displayName || '',
@@ -96,7 +84,13 @@ export class User implements IUser {
 
   static async getUserLoginLink(id: string) {
     const user = await User.getUser(id);
-    const account = await stripe.accounts.retrieve(user.connected_account_id);
+    const userData = user?.data();
+
+    if (!userData) {
+      throw new UserNotFound();
+    }
+
+    const account = await stripe.accounts.retrieve(userData.connected_account_id);
 
     return await stripe.accounts.createLoginLink(account.id);
   }
@@ -105,9 +99,14 @@ export class User implements IUser {
     const { id, email, refreshUrl, returnUrl } = request;
 
     const user = await User.getUser(id);
+    const userData = user?.data();
 
-    if (user && user.connected_account_id) {
-      return Promise.resolve(user.account_link_url);
+    if (!userData) {
+      throw new UserNotFound();
+    }
+
+    if (userData.connected_account_id) {
+      return Promise.resolve(userData.account_link_url);
     }
 
     const account = await stripe.accounts.create({

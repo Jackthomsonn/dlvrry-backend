@@ -8,7 +8,11 @@ export const createUser = functions.auth.user().onCreate(async (user) => {
     admin.initializeApp();
   }
 
-  await User.createUser(user);
+  try {
+    await User.createUser(user);
 
-  return { completed: true }
+    return {};
+  } catch (e) {
+    return { e };
+  }
 });

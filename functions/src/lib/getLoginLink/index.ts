@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
+import { Response } from './../../classes/response/index';
 import { User } from '../../classes/user/index';
 
 export const getLoginLink = functions.https.onRequest(async (request, response) => {
@@ -8,7 +9,11 @@ export const getLoginLink = functions.https.onRequest(async (request, response) 
     admin.initializeApp();
   }
 
-  const loginLink = await User.getUserLoginLink(request.body.id);
+  try {
+    const loginLink = await User.getUserLoginLink(request.body.id);
 
-  response.send(loginLink);
+    response.send(Response.success(loginLink));
+  } catch (e) {
+    response.status(e.status ? e.status : 500).send(Response.fail(e));
+  }
 })

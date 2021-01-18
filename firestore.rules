@@ -4,10 +4,11 @@ service cloud.firestore {
     match /users/{user} {
       allow create;
       allow read, list: if request.auth.uid != null;
-      allow update: if request.auth.uid == user;
+      allow update: if request.auth.uid != null;
     }
     match /jobs/{job} {
-      allow create, read, list, update: if request.auth.uid != null;
+      allow read, list, create, update: if request.auth.uid != null;
+      allow delete: if request.auth.uid == get(/databases/$(database)/documents/jobs/$(job)).data.owner_id;
     }
     match /keys/{key} {
       allow read, create, list, update, delete: if request.auth.uid != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.admin == true

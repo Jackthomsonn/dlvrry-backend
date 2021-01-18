@@ -1,2 +1,2 @@
-functions/firestore-debug.log
-functions/ui-debug.log
+functions/*.log
+functions/node_modules

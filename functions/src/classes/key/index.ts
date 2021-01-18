@@ -4,7 +4,9 @@ import * as moment from 'moment';
 import { createHmac, timingSafeEqual } from 'crypto';
 
 import { IKey } from 'dlvrry-common';
+import { InvalidSignature } from './../../errors/invalidSignature';
 import { Job } from '../job';
+import { KeyNotFound } from './../../errors/keyNotFound';
 
 export class Key implements IKey {
   constructor(
@@ -27,17 +29,13 @@ export class Key implements IKey {
     }
   }
 
-  static getKey(id: string): Promise<Key> {
-    return new Promise<any>(resolve => {
-      admin
-        .firestore()
-        .collection('keys')
-        .doc(id)
-        .withConverter(this.getConverter())
-        .onSnapshot(async (response) => {
-          resolve(response.data());
-        });
-    });
+  static getKey(id: string): Promise<FirebaseFirestore.DocumentSnapshot<Key>> {
+    return admin
+      .firestore()
+      .collection('keys')
+      .withConverter(this.getConverter())
+      .doc(id)
+      .get();
   }
 
   static updateKey(id: string, newKey: Partial<IKey>): Promise<admin.firestore.WriteResult> {
@@ -52,8 +50,8 @@ export class Key implements IKey {
     return admin
       .firestore()
       .collection('keys')
-      .doc()
       .withConverter(this.getConverter())
+      .doc()
       .create(key);
   }
 
@@ -61,43 +59,28 @@ export class Key implements IKey {
     const keyResponse = await admin
       .firestore()
       .collection('keys')
+      .withConverter(this.getConverter())
       .doc(body.platform_id)
       .get();
 
     const keyData = keyResponse.data();
 
     if (!keyData) {
-      return Promise.resolve({
-        status: 404,
-        message: 'No key found'
-      });
+      throw new KeyNotFound();
     }
 
     const data = { ...body.job, timestamp: body.timestamp };
 
     const computedHmac = createHmac('sha512', keyData.key).update(JSON.stringify(data)).digest('hex');
 
-    try {
-      timingSafeEqual(Buffer.from(computedHmac, 'utf8'), Buffer.from(body.token, 'utf8'));
+    timingSafeEqual(Buffer.from(computedHmac, 'utf8'), Buffer.from(body.token, 'utf8'));
 
-      if (computedHmac !== body.token || moment().diff(body.timestamp, 'seconds') > 10) {
-        return Promise.resolve({
-          status: 403,
-          message: 'Invalid signature'
-        });
-      } else {
-        await Job.createJob(body.job, body.job.owner_id);
+    if (computedHmac !== body.token || moment().diff(body.timestamp, 'seconds') > 10) {
+      throw new InvalidSignature();
+    } else {
+      await Job.createJob(body.job, body.job.owner_id);
 
-        return Promise.resolve({
-          status: 200,
-          message: true
-        })
-      }
-    } catch (e) {
-      return Promise.resolve({
-        status: 403,
-        message: 'Invalid signature'
-      });
+      return Promise.resolve();
     }
   }
 }

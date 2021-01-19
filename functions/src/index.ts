@@ -9,7 +9,6 @@ import { getLoginLink } from './lib/getLoginLink/index';
 import { getPaymentCards } from './lib/getPaymentCards/index';
 import { onboardUser } from './lib/onboardUser';
 import { refreshAccountLink } from './lib/refreshAccountLink/index';
-import { testStripe } from './lib/testStripe/index';
 
 export {
   onboardUser,
@@ -20,7 +19,6 @@ export {
   completeJob,
   createJob,
   externalCreateJob,
-  testStripe,
   addPaymentMethod,
   getPaymentCards,
   createSessionToken,

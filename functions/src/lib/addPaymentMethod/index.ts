@@ -37,6 +37,7 @@ export const addPaymentMethod = functions.https.onRequest(async (request, respon
       confirm: true,
       currency: 'gbp',
       setup_future_usage: 'off_session',
+      capture_method: 'manual',
     });
 
     if (paymentIntent.next_action) {

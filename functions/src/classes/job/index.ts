@@ -1,3 +1,4 @@
+import { JobTaken } from './../../errors/jobTaken';
 import * as admin from 'firebase-admin';
 
 import { IJob, JobStatus } from 'dlvrry-common';
@@ -121,6 +122,30 @@ export class Job implements IJob {
     return await doc
       .withConverter(Job.getConverter())
       .create(job)
+  }
+
+  static async acceptJob(id: string, rider_id: string): Promise<admin.firestore.WriteResult> {
+    try {
+      const jobDoc = admin
+        .firestore()
+        .collection('jobs')
+        .withConverter(this.getConverter())
+        .doc(id);
+
+      const jobDocData = await jobDoc.get();
+
+      if (jobDocData.data()?.status === JobStatus.IN_PROGRESS) {
+        throw new JobTaken();
+      }
+
+      return await jobDoc
+        .update({
+          status: JobStatus.IN_PROGRESS,
+          rider_id: rider_id,
+        });
+    } catch (e) {
+      throw e;
+    }
   }
 
   private static async createPaymentIntent(job: IJob, rider_doc: User, owner_doc: User) {

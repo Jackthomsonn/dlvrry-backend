@@ -21,7 +21,7 @@
     "calculate-percentages": "^1.0.0",
     "cors": "^2.8.5",
     "cryptr": "^6.0.2",
-    "dlvrry-common": "0.0.3",
+    "dlvrry-common": "0.0.5",
     "firebase-admin": "^9.2.0",
     "firebase-functions": "^3.11.0",
     "moment": "^2.29.1",

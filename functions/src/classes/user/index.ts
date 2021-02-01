@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import * as functions from 'firebase-functions';
 
 import { AccountType, IUser, VerificationStatus } from 'dlvrry-common';
 
@@ -134,5 +135,73 @@ export class User implements IUser {
     });
 
     return Promise.resolve(account_links.url);
+  }
+
+  static async addPaymentMethod(request: functions.Request) {
+    const payment_method_id: any = request.query.id;
+    const customer_id: any = request.query.customer_id;
+
+    await stripe.paymentMethods.attach(payment_method_id, { customer: customer_id });
+
+    await stripe.customers.update(customer_id, {
+      invoice_settings: {
+        default_payment_method: payment_method_id,
+      },
+    });
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: 100,
+      payment_method: payment_method_id,
+      customer: customer_id,
+      confirm: true,
+      currency: 'gbp',
+      setup_future_usage: 'off_session',
+      capture_method: 'manual',
+    });
+
+    if (paymentIntent.next_action) {
+      return Promise.resolve({
+        completed: false,
+        payment_method: paymentIntent.payment_method,
+        client_secret: paymentIntent.client_secret,
+      });
+    } else {
+      return Promise.resolve({ completed: true });
+    }
+  }
+
+  static async getConnectedAccountDetails(request: functions.Request) {
+    const user = await User.getUser(request.body.id);
+    const user_data = user.data();
+
+    if (!user_data) {
+      return Promise.reject({ status: 404, message: 'No user found' });
+    } else {
+      const account = await stripe.accounts.retrieve(user_data.connected_account_id);
+
+      return Promise.resolve(account);
+    }
+  }
+
+  static async getPaymentMethods(request: functions.Request) {
+    const paymentMethods = await stripe.paymentMethods.list({
+      customer: request.body.customer_id,
+      type: 'card',
+    });
+
+    return Promise.resolve(paymentMethods.data);
+  }
+
+  static async refreshAccountLink(request: functions.Request) {
+    const params: any = request.query;
+
+    const accountLinks = await stripe.accountLinks.create({
+      account: params.account,
+      refresh_url: `${ functions.config().dlvrry.functions_url }/refreshAccountLink?account=${ params.account }`,
+      return_url: functions.config().dlvrry.return_url,
+      type: 'account_onboarding',
+    });
+
+    return Promise.resolve(accountLinks.url);
   }
 }

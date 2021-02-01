@@ -2,23 +2,20 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
 import { Response } from './../../classes/response/index';
-import Stripe from 'stripe';
-
-const stripe: Stripe = require('stripe')(process.env.STRIPE_SECRET);
+import { User } from './../../classes/user/index';
+import { ValidateRequest } from './../../utils/auth';
 
 export const getPaymentCards = functions.https.onRequest(async (request, response) => {
-  if (!admin.apps.length) {
-    admin.initializeApp();
-  }
+  if (!admin.apps.length) admin.initializeApp();
 
   try {
-    const paymentMethods = await stripe.paymentMethods.list({
-      customer: request.body.customer_id,
-      type: 'card',
-    });
+    await ValidateRequest(request);
 
-    response.send(Response.success(paymentMethods.data));
-  } catch (e) {
+    const result = await User.getPaymentMethods(request);
+
+    response.send(Response.success(result));
+  }
+  catch (e) {
     response.status(e.status ? e.status : 500).send(Response.fail(e));
   }
 })

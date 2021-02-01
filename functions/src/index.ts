@@ -1,7 +1,7 @@
+import { acceptJob } from './lib/acceptJob';
 import { addPaymentMethod } from './lib/addPaymentMethod/index';
 import { completeJob } from './lib/completeJob/index';
-import { createJob } from './lib/createJob/index';
-import { createSessionToken } from './lib/createSessionToken/index';
+import { createJob } from './lib/createJob'
 import { createUser } from './lib/createUser/index';
 import { externalCreateJob } from './lib/externalCreateJob/index';
 import { getConnectedAccountDetails } from './lib/getConnectedAccountDetails/index';
@@ -18,8 +18,8 @@ export {
   refreshAccountLink,
   completeJob,
   createJob,
+  acceptJob,
   externalCreateJob,
   addPaymentMethod,
   getPaymentCards,
-  createSessionToken,
 };

@@ -7,7 +7,7 @@ service cloud.firestore {
       allow update: if request.auth.uid != null;
     }
     match /jobs/{job} {
-      allow read, list, create, update: if request.auth.uid != null;
+      allow read, list, create, update;
       allow delete: if request.auth.uid == get(/databases/$(database)/documents/jobs/$(job)).data.owner_id;
     }
     match /keys/{key} {

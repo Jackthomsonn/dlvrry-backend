@@ -2,13 +2,13 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
 import { Job } from '../../classes/job';
-import { Response } from './../../classes/response/index';
+import { Response } from '../../classes/response/index';
 
-export const createJob = functions.https.onRequest(async (request, response) => {
+export const acceptJob = functions.https.onRequest(async (request, response) => {
   if (!admin.apps.length) admin.initializeApp();
 
   try {
-    await Job.createJob(request.body.job, request.body.rider_id);
+    await Job.acceptJob(request.body.id, request.body.rider_id);
 
     response.send(Response.success());
   }

@@ -13,6 +13,7 @@ export const createJob = functions.https.onRequest(async (request, response) => 
     response.send(Response.success());
   }
   catch (e) {
+    console.log(e);
     response.status(e.status ? e.status : 500).send(Response.fail(e));
   }
 })

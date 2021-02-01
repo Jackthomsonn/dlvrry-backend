@@ -1,9 +1,9 @@
-import { JobTaken } from './../../errors/jobTaken';
 import * as admin from 'firebase-admin';
 
 import { IJob, JobStatus } from 'dlvrry-common';
 
 import { JobNotFound } from './../../errors/jobNotFound';
+import { JobTaken } from './../../errors/jobTaken';
 import Stripe from 'stripe';
 import { User } from './../user/index';
 import { UserNotFound } from './../../errors/userNotFound';
@@ -83,7 +83,7 @@ export class Job implements IJob {
       throw new UserNotFound();
     }
 
-    await Job.createPaymentIntent(job_doc_data, rider_doc_data, owner_doc_data);
+    await this.transferFunds(job, rider_doc_data);
 
     return await Job.updateJob(job.id, { id: job.id, status: JobStatus.COMPLETED });
   }
@@ -97,7 +97,7 @@ export class Job implements IJob {
       .update(job);
   }
 
-  static async createJob(job: IJob, owner_id: string): Promise<admin.firestore.WriteResult> {
+  static async createJob(job: IJob, owner_id: string) {
     const business = await User.getUser(owner_id);
     const business_data = business.data();
 
@@ -119,9 +119,34 @@ export class Job implements IJob {
 
     job.id = doc.id;
 
-    return await doc
+    await doc
       .withConverter(Job.getConverter())
       .create(job)
+
+    const job_doc = await Job.getJob(job.id);
+    const job_doc_data = job_doc.data();
+
+    if (!job_doc_data) {
+      throw new JobNotFound();
+    }
+
+    const owner_doc = await User.getUser(job_doc_data.owner_id);
+    const owner_doc_data = owner_doc.data();
+
+    if (!owner_doc_data) {
+      throw new UserNotFound();
+    }
+
+    const payment_intent = await Job.createPaymentIntent(job_doc_data, owner_doc_data);
+
+    if (payment_intent.last_payment_error) {
+      const job_data_doc = await Job.getJob(job.id);
+      const d = job_data_doc.data();
+
+      if (d && d.id) {
+        await Job.updateJob(d.id, { status: JobStatus.REFUNDED }); // Change to delete
+      }
+    }
   }
 
   static async acceptJob(id: string, rider_id: string): Promise<admin.firestore.WriteResult> {
@@ -148,26 +173,35 @@ export class Job implements IJob {
     }
   }
 
-  private static async createPaymentIntent(job: IJob, rider_doc: User, owner_doc: User) {
+  private static async transferFunds(job: IJob, rider_doc: User) {
     const remoteConfig = admin.remoteConfig();
     const config = await remoteConfig.getTemplate();
 
     const fee = Number((<any>config.parameters.application_fee.defaultValue).value);
 
     const APPLICATION_FEE = Math.floor(fee * job.cost / 100 + 20);
+
+    if (rider_doc && rider_doc.id) {
+      return stripe.transfers.create({
+        amount: job.cost - APPLICATION_FEE,
+        destination: rider_doc.id,
+        currency: 'gbp',
+      });
+    } else {
+      return;
+    }
+  }
+
+  private static async createPaymentIntent(job: IJob, owner_doc: User) {
     const stripe_customer_object: any = await stripe.customers.retrieve(owner_doc.customer_id);
 
     return stripe.paymentIntents.create({
       amount: job.cost,
-      application_fee_amount: APPLICATION_FEE,
       payment_method_types: [ 'card' ],
       payment_method: stripe_customer_object.invoice_settings.default_payment_method,
       confirm: true,
       customer: owner_doc.customer_id,
       currency: 'gbp', // This will need to be dynamic based on account location
-      transfer_data: {
-        destination: rider_doc.connected_account_id,
-      },
       off_session: true,
     });
   }

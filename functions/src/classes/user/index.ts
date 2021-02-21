@@ -54,13 +54,29 @@ export class User implements IUser {
       .get()
   }
 
-  static updateUser(id: string, user: Partial<IUser>): Promise<admin.firestore.WriteResult> {
+  static async updateUser(id: string, user: Partial<IUser>): Promise<admin.firestore.WriteResult> {
     return admin
       .firestore()
       .collection('users')
       .withConverter(this.getConverter())
       .doc(id)
       .update(user);
+  }
+
+  static async updateUserWhere(user: Partial<IUser>, where: { whereField: any, whereOp: any, whereValue: any }): Promise<admin.firestore.WriteResult> {
+    const userDoc = await admin
+      .firestore()
+      .collection('users')
+      .where(where.whereField, where.whereOp, where.whereValue)
+      .withConverter(this.getConverter())
+      .get();
+
+    return admin
+      .firestore()
+      .collection('users')
+      .withConverter(this.getConverter())
+      .doc(userDoc.docs[ 0 ].data().id || '')
+      .update(user)
   }
 
   static createUser(user: admin.auth.UserRecord): Promise<admin.firestore.WriteResult> {
@@ -138,6 +154,7 @@ export class User implements IUser {
   }
 
   static async addPaymentMethod(request: functions.Request) {
+    console.log(request.query);
     const payment_method_id: any = request.query.id;
     const customer_id: any = request.query.customer_id;
 
@@ -149,14 +166,10 @@ export class User implements IUser {
       },
     });
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: 100,
+    const paymentIntent = await stripe.setupIntents.create({
       payment_method: payment_method_id,
       customer: customer_id,
       confirm: true,
-      currency: 'gbp',
-      setup_future_usage: 'off_session',
-      capture_method: 'manual',
     });
 
     if (paymentIntent.next_action) {

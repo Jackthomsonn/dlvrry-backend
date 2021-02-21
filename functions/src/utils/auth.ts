@@ -3,7 +3,7 @@ import * as functions from 'firebase-functions';
 
 import { Unauthorized } from './../errors/unauthorized';
 
-export const ValidateRequest = async (request: functions.Request) => {
+export const ValidateRequest = async (request: functions.Request): Promise<admin.auth.DecodedIdToken> => {
   try {
     if (!request.headers.authorization) {
       throw new Unauthorized();
@@ -14,8 +14,9 @@ export const ValidateRequest = async (request: functions.Request) => {
     if (token.uid !== request.body.id) {
       throw new Unauthorized();
     }
+
+    return Promise.resolve(token);
   } catch (e) {
-    console.log(e.message)
     throw e;
   }
 }

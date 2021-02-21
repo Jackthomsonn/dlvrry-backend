@@ -20,31 +20,33 @@ export class Job implements IJob {
     readonly number_of_items: number,
     readonly payout: number,
     readonly cost: number,
+    readonly payment_captured: boolean,
     readonly status?: JobStatus | undefined,
     readonly id?: string,
+    readonly charge_id?: string,
   ) { }
 
   static getConverter(): admin.firestore.FirestoreDataConverter<Job> {
     return {
-      toFirestore({ owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, cost, status, id }: Job): admin.firestore.DocumentData {
-        return { owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, cost, status, id };
+      toFirestore({ owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, cost, payment_captured, status, id, charge_id }: Job): admin.firestore.DocumentData {
+        return { owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, cost, payment_captured, status, id, charge_id };
       },
       fromFirestore(
         snapshot: admin.firestore.QueryDocumentSnapshot<Job>
       ): Job {
-        const { owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, cost, status, id } = snapshot.data();
+        const { owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, cost, payment_captured, status, id, charge_id } = snapshot.data();
 
-        return new Job(owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, cost, status, id);
+        return new Job(owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, cost, payment_captured, status, id, charge_id);
       },
     }
   }
 
-  static getJobs(): Promise<FirebaseFirestore.QuerySnapshot<IJob>> {
+  static getJobs(whereField: any, whereOp: any, whereValue: any): Promise<FirebaseFirestore.QuerySnapshot<IJob>> {
     return admin
       .firestore()
       .collection('jobs')
       .withConverter(this.getConverter())
-      .where('status', '==', JobStatus.PENDING)
+      .where((whereField && whereOp && whereValue) ?? 'status', '==', JobStatus.PENDING)
       .get()
   }
 
@@ -83,7 +85,7 @@ export class Job implements IJob {
       throw new UserNotFound();
     }
 
-    await this.transferFunds(job, rider_doc_data);
+    await this.transferFunds(job_doc_data, rider_doc_data);
 
     return await Job.updateJob(job.id, { id: job.id, status: JobStatus.COMPLETED });
   }
@@ -105,12 +107,17 @@ export class Job implements IJob {
       throw new UserNotFound();
     }
 
+    const payout = await this.calculateFee(job.cost);
+
     job.rider_id = '';
-    job.status = JobStatus.PENDING;
+    job.status = JobStatus.AWAITING_PAYMENT;
     job.owner_id = owner_id;
     job.owner_name = business_data.name;
     job.pickup_location = new admin.firestore.GeoPoint(job.pickup_location.latitude, job.pickup_location.longitude);
     job.customer_location = new admin.firestore.GeoPoint(job.customer_location.latitude, job.customer_location.longitude);
+    job.charge_id = '';
+    job.payment_captured = false;
+    job.payout = payout;
 
     const doc = admin
       .firestore()
@@ -137,15 +144,26 @@ export class Job implements IJob {
       throw new UserNotFound();
     }
 
-    const payment_intent = await Job.createPaymentIntent(job_doc_data, owner_doc_data);
+    try {
+      const paymentIntent = await Job.createPayment(job_doc_data, owner_doc_data);
 
-    if (payment_intent.last_payment_error) {
-      const job_data_doc = await Job.getJob(job.id);
-      const d = job_data_doc.data();
+      await Job.updateJob(job.id, { charge_id: paymentIntent.charges.data[ 0 ].id, payment_captured: true, status: JobStatus.PENDING });
 
-      if (d && d.id) {
-        await Job.updateJob(d.id, { status: JobStatus.REFUNDED }); // Change to delete
+      return Promise.resolve({
+        completed: true,
+      });
+    } catch (e) {
+      if (e instanceof Stripe.errors.StripeCardError) {
+        await Job.updateJob(job.id, { charge_id: e.payment_intent?.charges.data[ 0 ].id, payment_captured: false, status: JobStatus.AWAITING_PAYMENT });
+
+        return Promise.resolve({
+          completed: false,
+          client_secret: e.payment_intent?.client_secret,
+          payment_method_id: e.payment_intent?.last_payment_error?.payment_method?.id,
+        });
       }
+
+      return;
     }
   }
 
@@ -173,36 +191,60 @@ export class Job implements IJob {
     }
   }
 
+  static async cancelJob(id: string, token: admin.auth.DecodedIdToken) {
+
+    const job = await Job.getJob(id);
+    const user = await User.getUser(token.uid);
+    const job_data = job.data();
+    const user_data = user.data();
+
+    if (user_data && job_data && token.uid !== job_data.owner_id) {
+      const rider_id = job_data.rider_id;
+
+      await Job.updateJob(id, { status: JobStatus.CANCELLED });
+
+      await User.updateUser(rider_id, { cancelled_jobs: user_data?.cancelled_jobs + 1 });
+
+      return Promise.resolve();
+    }
+  }
+
   private static async transferFunds(job: IJob, rider_doc: User) {
-    const remoteConfig = admin.remoteConfig();
-    const config = await remoteConfig.getTemplate();
-
-    const fee = Number((<any>config.parameters.application_fee.defaultValue).value);
-
-    const APPLICATION_FEE = Math.floor(fee * job.cost / 100 + 20);
-
     if (rider_doc && rider_doc.id) {
-      return stripe.transfers.create({
-        amount: job.cost - APPLICATION_FEE,
-        destination: rider_doc.id,
+      await stripe.transfers.create({
+        source_transaction: job.charge_id,
         currency: 'gbp',
+        amount: job.payout,
+        destination: rider_doc.connected_account_id,
       });
     } else {
       return;
     }
   }
 
-  private static async createPaymentIntent(job: IJob, owner_doc: User) {
+  private static async createPayment(job: IJob, owner_doc: User) {
     const stripe_customer_object: any = await stripe.customers.retrieve(owner_doc.customer_id);
 
     return stripe.paymentIntents.create({
       amount: job.cost,
-      payment_method_types: [ 'card' ],
       payment_method: stripe_customer_object.invoice_settings.default_payment_method,
-      confirm: true,
       customer: owner_doc.customer_id,
-      currency: 'gbp', // This will need to be dynamic based on account location
+      currency: 'gbp',
+      confirm: true,
       off_session: true,
+      metadata: {
+        id: job?.id || '',
+      },
     });
+  }
+
+  private static async calculateFee(cost: number) {
+    const remoteConfig = await admin.remoteConfig().getTemplate();
+    const feePercent = (<any>remoteConfig.parameters.application_fee.defaultValue).value;
+    const flatFee = (<any>remoteConfig.parameters.flat_fee.defaultValue).value;
+
+    const amountAfterPayoutFee = cost - Math.floor((cost / 100) * Number(feePercent) + Number(flatFee));
+
+    return Promise.resolve(Number(amountAfterPayoutFee.toFixed(0)));
   }
 }

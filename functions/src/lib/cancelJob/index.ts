@@ -2,18 +2,20 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
 import { Job } from '../../classes/job';
-import { Response } from './../../classes/response/index';
+import { Response } from '../../classes/response/index';
+import { ValidateRequest } from './../../utils/auth';
 
-export const completeJob = functions.https.onRequest(async (request, response) => {
+export const cancelJob = functions.https.onRequest(async (request, response) => {
   if (!admin.apps.length) admin.initializeApp();
 
   try {
-    await Job.completeJob(request.body.job);
+    const token = await ValidateRequest(request);
+
+    await Job.cancelJob(request.body.job, token);
 
     response.send(Response.success());
   }
   catch (e) {
-    console.log(e.message);
     response.status(e.status ? e.status : 500).send(Response.fail(e));
   }
 })

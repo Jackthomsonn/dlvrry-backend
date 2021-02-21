@@ -8,9 +8,9 @@ export const createJob = functions.https.onRequest(async (request, response) => 
   if (!admin.apps.length) admin.initializeApp();
 
   try {
-    await Job.createJob(request.body.job, request.body.rider_id);
+    const result = await Job.createJob(request.body.job, request.body.rider_id);
 
-    response.send(Response.success());
+    response.send(Response.success(result));
   }
   catch (e) {
     console.log(e);

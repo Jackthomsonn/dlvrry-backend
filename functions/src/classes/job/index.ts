@@ -144,10 +144,11 @@ export class Job implements IJob {
       throw new UserNotFound();
     }
 
+
     try {
       const paymentIntent = await Job.createPayment(job_doc_data, owner_doc_data);
 
-      await Job.updateJob(job.id, { charge_id: paymentIntent.charges.data[ 0 ].id, payment_captured: true, status: JobStatus.PENDING });
+      await Job.updateJob(job.id, { charge_id: paymentIntent?.charges.data[ 0 ].id, payment_captured: true, status: JobStatus.PENDING });
 
       return Promise.resolve({
         completed: true,
@@ -192,18 +193,29 @@ export class Job implements IJob {
   }
 
   static async cancelJob(id: string, token: admin.auth.DecodedIdToken) {
-
     const job = await Job.getJob(id);
     const user = await User.getUser(token.uid);
     const job_data = job.data();
     const user_data = user.data();
 
-    if (user_data && job_data && token.uid !== job_data.owner_id) {
-      const rider_id = job_data.rider_id;
+    if (token.uid === job_data?.owner_id) {
+      await Job.updateJob(id, { status: JobStatus.CANCELLED_BY_OWNER });
+
+      return Promise.resolve();
+    } else {
+      const rider_id = job_data?.rider_id;
+
+      if (!rider_id) {
+        throw new UserNotFound();
+      }
 
       await Job.updateJob(id, { status: JobStatus.CANCELLED });
 
-      await User.updateUser(rider_id, { cancelled_jobs: user_data?.cancelled_jobs + 1 });
+      if (user_data?.cancelled_jobs) {
+        await User.updateUser(rider_id, { cancelled_jobs: user_data?.cancelled_jobs + 1 });
+
+        return Promise.resolve();
+      }
 
       return Promise.resolve();
     }
@@ -217,25 +229,30 @@ export class Job implements IJob {
         amount: job.payout,
         destination: rider_doc.connected_account_id,
       });
-    } else {
-      return;
     }
+
+    return;
   }
 
   private static async createPayment(job: IJob, owner_doc: User) {
-    const stripe_customer_object: any = await stripe.customers.retrieve(owner_doc.customer_id);
+    const stripe_customer: any = await stripe.customers.retrieve(owner_doc.customer_id);
+    const customer = <Stripe.Customer>stripe_customer;
 
-    return stripe.paymentIntents.create({
-      amount: job.cost,
-      payment_method: stripe_customer_object.invoice_settings.default_payment_method,
-      customer: owner_doc.customer_id,
-      currency: 'gbp',
-      confirm: true,
-      off_session: true,
-      metadata: {
-        id: job?.id || '',
-      },
-    });
+    if (customer?.invoice_settings?.default_payment_method) {
+      return stripe.paymentIntents.create({
+        amount: job.cost,
+        payment_method: <string>customer.invoice_settings.default_payment_method,
+        customer: owner_doc.customer_id,
+        currency: 'gbp',
+        confirm: true,
+        off_session: true,
+        metadata: {
+          id: job?.id || '',
+        },
+      });
+    }
+
+    return;
   }
 
   private static async calculateFee(cost: number) {

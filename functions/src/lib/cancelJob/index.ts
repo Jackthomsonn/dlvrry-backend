@@ -11,7 +11,7 @@ export const cancelJob = functions.https.onRequest(async (request, response) => 
   try {
     const token = await ValidateRequest(request);
 
-    await Job.cancelJob(request.body.job, token);
+    await Job.cancelJob(request.body.id, token);
 
     response.send(Response.success());
   }

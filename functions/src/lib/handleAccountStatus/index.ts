@@ -29,15 +29,15 @@ export const handleAccountStatus = functions.https.onRequest(async (request, res
     },
     {
       code: 'rejected.listed',
-      status: VerificationStatus.REJECTED_LISTED
+      status: VerificationStatus.REJECTED_LISTED,
     },
     {
       code: 'rejected.other',
-      status: VerificationStatus.REJECTED_OTHER
+      status: VerificationStatus.REJECTED_OTHER,
     },
     {
       code: 'listed',
-      status: VerificationStatus.LISTED
+      status: VerificationStatus.LISTED,
     },
     {
       code: 'under_review',

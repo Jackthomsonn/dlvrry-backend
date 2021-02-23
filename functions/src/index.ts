@@ -1,5 +1,6 @@
 import { acceptJob } from './lib/acceptJob';
 import { addPaymentMethod } from './lib/addPaymentMethod/index';
+import { cancelJob } from './lib/cancelJob/index';
 import { completeJob } from './lib/completeJob/index';
 import { createJob } from './lib/createJob'
 import { createUser } from './lib/createUser/index';
@@ -26,4 +27,5 @@ export {
   getPaymentCards,
   handlePaymentStatus,
   handleAccountStatus,
+  cancelJob,
 };

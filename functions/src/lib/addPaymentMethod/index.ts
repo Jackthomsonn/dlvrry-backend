@@ -18,7 +18,6 @@ export const addPaymentMethod = functions.https.onRequest(async (request, respon
     response.send(Response.success(result));
   }
   catch (e) {
-    console.log(e);
     response.status(e.status ? e.status : 500).send(Response.fail(e));
   }
 })

@@ -154,7 +154,6 @@ export class User implements IUser {
   }
 
   static async addPaymentMethod(request: functions.Request) {
-    console.log(request.query);
     const payment_method_id: any = request.query.id;
     const customer_id: any = request.query.customer_id;
 

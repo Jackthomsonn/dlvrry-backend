@@ -11,10 +11,6 @@ export const ValidateRequest = async (request: functions.Request): Promise<admin
 
     const token = await admin.auth().verifyIdToken(request.headers.authorization, true);
 
-    if (token.uid !== request.body.id) {
-      throw new Unauthorized();
-    }
-
     return Promise.resolve(token);
   } catch (e) {
     throw e;

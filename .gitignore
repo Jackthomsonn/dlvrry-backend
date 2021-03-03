@@ -1,4 +1,4 @@
 functions/*.log
+functions/.runtimeconfig.json
 functions/node_modules
-functions/lib
 .vscode

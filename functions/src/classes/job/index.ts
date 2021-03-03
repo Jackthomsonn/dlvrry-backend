@@ -1,17 +1,21 @@
+import { Unauthorized } from './../../errors/unauthorized';
 import * as admin from 'firebase-admin';
-
-import { IJob, JobStatus } from 'dlvrry-common';
 
 import { JobNotFound } from './../../errors/jobNotFound';
 import { JobTaken } from './../../errors/jobTaken';
 import Stripe from 'stripe';
 import { User } from './../user/index';
 import { UserNotFound } from './../../errors/userNotFound';
+import { IJob, JobStatus } from 'dlvrry-common';
+import * as geocoder from 'node-geocoder';
+import moment = require('moment');
+import * as functions from 'firebase-functions';
 
-const stripe: Stripe = require('stripe')(process.env.STRIPE_SECRET);
+const stripe: Stripe = require('stripe')(functions.config().dlvrry.stripe_secret);
 
 export class Job implements IJob {
   constructor(
+    readonly created: string,
     readonly owner_name: string,
     readonly owner_id: string,
     readonly rider_id: string,
@@ -20,6 +24,7 @@ export class Job implements IJob {
     readonly number_of_items: number,
     readonly payout: number,
     readonly cost: number,
+    readonly customer_location_name: string,
     readonly payment_captured: boolean,
     readonly status?: JobStatus | undefined,
     readonly id?: string,
@@ -28,15 +33,15 @@ export class Job implements IJob {
 
   static getConverter(): admin.firestore.FirestoreDataConverter<Job> {
     return {
-      toFirestore({ owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, cost, payment_captured, status, id, charge_id }: Job): admin.firestore.DocumentData {
-        return { owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, cost, payment_captured, status, id, charge_id };
+      toFirestore({ created, owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, cost, customer_location_name, payment_captured, status, id, charge_id }: Job): admin.firestore.DocumentData {
+        return { created, owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, cost, customer_location_name, payment_captured, status, id, charge_id };
       },
       fromFirestore(
         snapshot: admin.firestore.QueryDocumentSnapshot<Job>
       ): Job {
-        const { owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, cost, payment_captured, status, id, charge_id } = snapshot.data();
+        const { created, owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, cost, customer_location_name, payment_captured, status, id, charge_id } = snapshot.data();
 
-        return new Job(owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, cost, payment_captured, status, id, charge_id);
+        return new Job(created, owner_name, owner_id, rider_id, customer_location, pickup_location, number_of_items, payout, cost, customer_location_name, payment_captured, status, id, charge_id);
       },
     }
   }
@@ -59,7 +64,7 @@ export class Job implements IJob {
       .get();
   }
 
-  static async completeJob(job: IJob) {
+  static async completeJob(job: IJob, token: admin.auth.DecodedIdToken) {
     if (!job.id) {
       throw new JobNotFound();
     }
@@ -76,6 +81,10 @@ export class Job implements IJob {
 
     if (!rider_doc_data) {
       throw new UserNotFound();
+    }
+
+    if (token.uid !== rider_doc_data.id) {
+      throw new Unauthorized();
     }
 
     const owner_doc = await User.getUser(job_doc_data.owner_id);
@@ -109,6 +118,9 @@ export class Job implements IJob {
 
     const payout = await this.calculateFee(job.cost);
 
+    const locationName = await Job.getLocationName(job.customer_location.latitude, job.customer_location.longitude);
+
+    job.customer_location_name = `${ locationName[ 0 ].streetNumber }, ${ locationName[ 0 ].streetName }`;
     job.rider_id = '';
     job.status = JobStatus.AWAITING_PAYMENT;
     job.owner_id = owner_id;
@@ -118,6 +130,7 @@ export class Job implements IJob {
     job.charge_id = '';
     job.payment_captured = false;
     job.payout = payout;
+    job.created = moment().toISOString();
 
     const doc = admin
       .firestore()
@@ -202,7 +215,7 @@ export class Job implements IJob {
       await Job.updateJob(id, { status: JobStatus.CANCELLED_BY_OWNER });
 
       return Promise.resolve();
-    } else {
+    } else if (token.uid === job_data?.rider_id) {
       const rider_id = job_data?.rider_id;
 
       if (!rider_id) {
@@ -216,22 +229,22 @@ export class Job implements IJob {
 
         return Promise.resolve();
       }
-
-      return Promise.resolve();
+    } else {
+      throw new Unauthorized();
     }
   }
 
   private static async transferFunds(job: IJob, rider_doc: User) {
-    if (rider_doc && rider_doc.id) {
-      await stripe.transfers.create({
-        source_transaction: job.charge_id,
-        currency: 'gbp',
-        amount: job.payout,
-        destination: rider_doc.connected_account_id,
-      });
+    if (!rider_doc?.id) {
+      throw new UserNotFound();
     }
 
-    return;
+    return stripe.transfers.create({
+      source_transaction: job.charge_id,
+      currency: 'gbp',
+      amount: job.payout,
+      destination: rider_doc.connected_account_id,
+    });
   }
 
   private static async createPayment(job: IJob, owner_doc: User) {
@@ -263,5 +276,14 @@ export class Job implements IJob {
     const amountAfterPayoutFee = cost - Math.floor((cost / 100) * Number(feePercent) + Number(flatFee));
 
     return Promise.resolve(Number(amountAfterPayoutFee.toFixed(0)));
+  }
+
+  private static async getLocationName(lat: number, lon: number) {
+    const geocode = geocoder({
+      provider: 'google',
+      apiKey: functions.config().dlvrry.g_api_key,
+    });
+
+    return geocode.reverse({ lat, lon });
   }
 }

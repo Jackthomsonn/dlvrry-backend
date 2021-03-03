@@ -1,15 +1,15 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
+import { Auth } from '../../classes/auth';
 import { Job } from '../../classes/job';
 import { Response } from '../../classes/response/index';
-import { ValidateRequest } from './../../utils/auth';
 
 export const cancelJob = functions.https.onRequest(async (request, response) => {
   if (!admin.apps.length) admin.initializeApp();
 
   try {
-    const token = await ValidateRequest(request);
+    const token = await Auth.verify(request);
 
     await Job.cancelJob(request.body.id, token);
 

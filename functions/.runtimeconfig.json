@@ -1,6 +1,10 @@
 {
   "dlvrry": {
-    "functions_url": "https://dlvrry-functions.ngrok.io/dlvrry-33018/us-central1",
-    "return_url": "https://auth.expo.io/@jackthomson/dlvrry"
+    "return_url": "https://auth.expo.io/@jackthomson/dlvrry",
+    "functions_url": "https://us-central1-dlvrry-33018.cloudfunctions.net",
+    "payment_status_secret": "whsec_TI1toFn6LlZkYNkeAjiCoKDj35LgXzdp",
+    "g_api_key": "AIzaSyBcQkaIwOQN0mbW8aUhjXIVz2q22cywbbU",
+    "account_status_secret": "whsec_8MGPuRYxfqByTSk2IIfQTrCU6BxhyEdK",
+    "stripe_secret": "sk_test_51Hu360ECTL6k6a8reKgaI4uf0oHxzkVr1XLeyVhOLFg0V2C4A3btyAOVPkqlxCHStK0LVzdYKQq3oU0Idzseb1cD00hgYdkaV0"
   }
 }

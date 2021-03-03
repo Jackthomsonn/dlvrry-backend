@@ -1,15 +1,15 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
+import { Auth } from '../../classes/auth';
 import { Response } from './../../classes/response/index';
 import { User } from '../../classes/user/index';
-import { ValidateRequest } from './../../utils/auth';
 
 export const getLoginLink = functions.https.onRequest(async (request, response) => {
   if (!admin.apps.length) admin.initializeApp();
 
   try {
-    await ValidateRequest(request);
+    await Auth.verify(request);
 
     const loginLink = await User.getUserLoginLink(request.body.id);
 

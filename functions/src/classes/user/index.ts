@@ -1,12 +1,12 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
-import { AccountType, IUser, VerificationStatus } from 'dlvrry-common';
+import { AccountType, IUser, ModeType, VerificationStatus } from 'dlvrry-common';
 
 import Stripe from 'stripe';
 import { UserNotFound } from '../../errors/userNotFound';
 
-const stripe: Stripe = require('stripe')(process.env.STRIPE_SECRET);
+const stripe: Stripe = require('stripe')(functions.config().dlvrry.stripe_secret);
 
 export class User implements IUser {
   constructor(
@@ -19,20 +19,21 @@ export class User implements IUser {
     readonly cancelled_jobs: number,
     readonly verified: boolean,
     readonly customer_id: string,
-    readonly id?: string
+    readonly mode: ModeType,
+    readonly id?: string,
   ) { }
 
   static getConverter() {
     return {
-      toFirestore({ name, email, account_type, connected_account_id, account_link_url, verification_status, cancelled_jobs, verified, customer_id, id }: User): admin.firestore.DocumentData {
-        return { name, email, account_type, connected_account_id, account_link_url, verification_status, cancelled_jobs, verified, customer_id, id };
+      toFirestore({ name, email, account_type, connected_account_id, account_link_url, verification_status, cancelled_jobs, verified, customer_id, mode, id }: User): admin.firestore.DocumentData {
+        return { name, email, account_type, connected_account_id, account_link_url, verification_status, cancelled_jobs, verified, customer_id, mode, id };
       },
       fromFirestore(
         snapshot: admin.firestore.QueryDocumentSnapshot<User>
       ): User {
-        const { name, email, account_type, connected_account_id, account_link_url, verification_status, cancelled_jobs, verified, customer_id, id } = snapshot.data();
+        const { name, email, account_type, connected_account_id, account_link_url, verification_status, cancelled_jobs, verified, customer_id, mode, id } = snapshot.data();
 
-        return new User(name, email, account_type, connected_account_id, account_link_url, verification_status, cancelled_jobs, verified, customer_id, id);
+        return new User(name, email, account_type, connected_account_id, account_link_url, verification_status, cancelled_jobs, verified, customer_id, mode, id);
       },
     }
   }
@@ -54,13 +55,29 @@ export class User implements IUser {
       .get()
   }
 
-  static updateUser(id: string, user: Partial<IUser>): Promise<admin.firestore.WriteResult> {
+  static async updateUser(id: string, user: Partial<IUser>): Promise<admin.firestore.WriteResult> {
     return admin
       .firestore()
       .collection('users')
       .withConverter(this.getConverter())
       .doc(id)
       .update(user);
+  }
+
+  static async updateUserWhere(user: Partial<IUser>, where: { whereField: any, whereOp: any, whereValue: any }): Promise<admin.firestore.WriteResult> {
+    const userDoc = await admin
+      .firestore()
+      .collection('users')
+      .where(where.whereField, where.whereOp, where.whereValue)
+      .withConverter(this.getConverter())
+      .get();
+
+    return admin
+      .firestore()
+      .collection('users')
+      .withConverter(this.getConverter())
+      .doc(userDoc.docs[ 0 ].data().id || '')
+      .update(user)
   }
 
   static createUser(user: admin.auth.UserRecord): Promise<admin.firestore.WriteResult> {
@@ -80,6 +97,7 @@ export class User implements IUser {
         verification_status: VerificationStatus.PENDING,
         cancelled_jobs: 0,
         verified: false,
+        mode: ModeType.NOT_APPLICABLE,
       });
   }
 
@@ -124,14 +142,9 @@ export class User implements IUser {
       type: 'account_onboarding',
     });
 
-    const customer = await stripe.customers.create({
-      email: email,
-    });
-
     await User.updateUser(id, {
       connected_account_id: account.id,
       account_link_url: account_links.url,
-      customer_id: customer.id,
     });
 
     return Promise.resolve(account_links.url);
@@ -149,14 +162,10 @@ export class User implements IUser {
       },
     });
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: 100,
+    const paymentIntent = await stripe.setupIntents.create({
       payment_method: payment_method_id,
       customer: customer_id,
       confirm: true,
-      currency: 'gbp',
-      setup_future_usage: 'off_session',
-      capture_method: 'manual',
     });
 
     if (paymentIntent.next_action) {
@@ -189,7 +198,17 @@ export class User implements IUser {
       type: 'card',
     });
 
-    return Promise.resolve(paymentMethods.data);
+    const customer = <Stripe.Customer>await stripe.customers.retrieve(request.body.customer_id);
+
+    const result = paymentMethods.data.map(paymentMethod => {
+      return {
+        brand: paymentMethod.card?.brand,
+        last4: paymentMethod.card?.last4,
+        is_default_payment_method: customer.invoice_settings.default_payment_method === paymentMethod.id,
+      }
+    });
+
+    return Promise.resolve(result);
   }
 
   static async refreshAccountLink(request: functions.Request) {

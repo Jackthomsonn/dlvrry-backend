@@ -8,8 +8,9 @@
     "func": "firebase serve --only functions -o 0.0.0.0",
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
-    "deploy": "firebase functions:config:set dlvrry.return_url='https://auth.expo.io/@jackthomson/dlvrry' dlvrry.functions_url='https://us-central1-dlvrry-33018.cloudfunctions.net' && firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "get:config": "firebase functions:config:get > .runtimeconfig.json"
   },
   "engines": {
     "node": "12"
@@ -18,18 +19,24 @@
   "dependencies": {
     "@types/cors": "^2.8.9",
     "axios": "^0.21.0",
-    "calculate-percentages": "^1.0.0",
     "cors": "^2.8.5",
     "cryptr": "^6.0.2",
-    "dlvrry-common": "0.0.5",
+    "dlvrry-common": "0.0.16",
+    "express": "^4.17.1",
+    "express-jwt": "^6.0.0",
+    "express-jwt-authz": "^2.4.1",
     "firebase-admin": "^9.2.0",
     "firebase-functions": "^3.11.0",
+    "firebase-functions-rate-limiter": "^3.8.3",
+    "jwks-rsa": "^1.12.3",
     "moment": "^2.29.1",
+    "node-geocoder": "^3.27.0",
     "stripe": "^8.126.0",
     "tsscmp": "^1.0.6",
     "uuid": "^8.3.2"
   },
   "devDependencies": {
+    "@types/node-geocoder": "^3.24.1",
     "@types/uuid": "^8.3.0",
     "@typescript-eslint/eslint-plugin": "^3.9.1",
     "@typescript-eslint/parser": "^3.8.0",

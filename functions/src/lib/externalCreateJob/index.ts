@@ -9,16 +9,9 @@ import { FirebaseFunctionsRateLimiter } from 'firebase-functions-rate-limiter';
 import { Job } from './../../classes/job/index';
 import { Response } from '../../classes/response';
 
-if (!admin.apps.length) admin.initializeApp();
-
-const limiter = FirebaseFunctionsRateLimiter.withFirestoreBackend(
-  {
-    name: 'external_job_creation_limiter',
-    maxCalls: 2,
-    periodSeconds: 10,
-  },
-  admin.firestore()
-);
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
 
 const app = express();
 
@@ -34,17 +27,27 @@ const jwtCheck = jwt({
   algorithms: [ 'RS256' ],
 });
 
+const limiter = FirebaseFunctionsRateLimiter.withFirestoreBackend(
+  {
+    name: 'external_job_creation_limiter',
+    maxCalls: 100,
+    periodSeconds: 10,
+    
+  },
+  admin.firestore()
+);
+
 app.get('/', jwtCheck, jwtauthz([ 'create:job' ]), async (request, response) => {
   try {
     await limiter.rejectOnQuotaExceededOrRecordUsage();
 
-    await Job.createJob(request.body.job, 'external');
+    const result = await Job.createJob(request.body.job, <string>request.headers[ 'user_id' ]);
 
-    response.send(Response.success());
+    response.send(Response.success(result));
   } catch (e) {
     response.status(e.status ? e.status : 500).send(Response.fail(e));
   }
-})
+});
 
 export const externalCreateJob = functions.https.onRequest(app);
 

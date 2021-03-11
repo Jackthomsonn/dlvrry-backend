@@ -7,7 +7,9 @@ import { Job } from '../../classes/job';
 import { Response } from './../../classes/response/index';
 
 export const createJob = functions.https.onRequest(async (request, response) => {
-  if (!admin.apps.length) admin.initializeApp();
+  if (!admin.apps.length) {
+    admin.initializeApp();
+  };
 
   const limiter = FirebaseFunctionsRateLimiter.withFirestoreBackend(
     {
@@ -28,7 +30,6 @@ export const createJob = functions.https.onRequest(async (request, response) => 
     response.send(Response.success(result));
   }
   catch (e) {
-    console.log(e);
     response.status(e.status ? e.status : 500).send(Response.fail(e));
   }
 })

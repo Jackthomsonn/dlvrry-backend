@@ -1,19 +1,16 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
-import { Auth } from './../../classes/auth/index';
+import { Payment } from './../../classes/payment/index';
 import { Response } from './../../classes/response/index';
-import { User } from '../../classes/user/index';
 
-export const getConnectedAccountDetails = functions.https.onRequest(async (request, response) => {
+export const setDefaultPaymentMethod = functions.https.onRequest(async (request, response) => {
   if (!admin.apps.length) {
     admin.initializeApp();
   };
 
   try {
-    await Auth.verify(request);
-
-    const result = await User.getConnectedAccountDetails(request);
+    const result = await Payment.setDefaultPaymentMethod(request.body.customer_id, request.body.payment_method_id);
 
     response.send(Response.success(result));
   }

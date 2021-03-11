@@ -5,7 +5,9 @@ import { Response } from './../../classes/response/index';
 import { User } from './../../classes/user/index';
 
 export const refreshAccountLink = functions.https.onRequest(async (request, response) => {
-  if (!admin.apps.length) admin.initializeApp();
+  if (!admin.apps.length) {
+    admin.initializeApp();
+  };
 
   try {
     const accountLinkUrl = await User.refreshAccountLink(request);

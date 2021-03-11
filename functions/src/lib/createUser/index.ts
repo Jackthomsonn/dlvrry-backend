@@ -8,7 +8,9 @@ import { User } from './../../classes/user/index';
 const stripe: Stripe = require('stripe')(functions.config().dlvrry.stripe_secret);
 
 export const createUser = functions.auth.user().onCreate(async (user) => {
-  if (!admin.apps.length) admin.initializeApp();
+  if (!admin.apps.length) {
+    admin.initializeApp();
+  };
 
   const limiter = FirebaseFunctionsRateLimiter.withFirestoreBackend(
     {

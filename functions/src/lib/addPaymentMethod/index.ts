@@ -1,11 +1,13 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
+import { Payment } from './../../classes/payment/index';
 import { Response } from './../../classes/response/index';
-import { User } from './../../classes/user/index';
 
 export const addPaymentMethod = functions.https.onRequest(async (request, response) => {
-  if (!admin.apps.length) admin.initializeApp();
+  if (!admin.apps.length) {
+    admin.initializeApp();
+  };
 
   response.set('Access-Control-Allow-Origin', '*');
 
@@ -16,7 +18,7 @@ export const addPaymentMethod = functions.https.onRequest(async (request, respon
   }
 
   try {
-    const result = await User.addPaymentMethod(request);
+    const result = await Payment.addPaymentMethod(request);
 
     response.send(Response.success(result));
   }

@@ -6,7 +6,9 @@ import { Response } from './../../classes/response/index';
 import { User } from '../../classes/user/index';
 
 export const getLoginLink = functions.https.onRequest(async (request, response) => {
-  if (!admin.apps.length) admin.initializeApp();
+  if (!admin.apps.length) {
+    admin.initializeApp();
+  };
 
   try {
     await Auth.verify(request);

@@ -6,7 +6,9 @@ import { Job } from '../../classes/job';
 import { Response } from './../../classes/response/index';
 
 export const completeJob = functions.https.onRequest(async (request, response) => {
-  if (!admin.apps.length) admin.initializeApp();
+  if (!admin.apps.length) {
+    admin.initializeApp();
+  };
 
   try {
     const token = await Auth.verify(request);

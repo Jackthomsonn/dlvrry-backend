@@ -8,10 +8,12 @@ import { User } from './../../classes/user/index';
 import { VerificationStatus } from 'dlvrry-common';
 
 export const handleAccountStatus = functions.https.onRequest(async (request, response) => {
-  if (!admin.apps.length) admin.initializeApp();
+  if (!admin.apps.length) {
+    admin.initializeApp();
+  };
 
   try {
-    Auth.verifyWebhook(request);
+    Auth.verifyWebhook(request, functions.config().dlvrry.account_status_secret);
 
     const onboardingEvent: Stripe.Event = request.body;
     const object = <Stripe.Account>onboardingEvent.data.object;

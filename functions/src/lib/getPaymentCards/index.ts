@@ -2,16 +2,18 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
 import { Auth } from '../../classes/auth';
+import { Payment } from '../../classes/payment';
 import { Response } from './../../classes/response/index';
-import { User } from './../../classes/user/index';
 
 export const getPaymentCards = functions.https.onRequest(async (request, response) => {
-  if (!admin.apps.length) admin.initializeApp();
+  if (!admin.apps.length) {
+    admin.initializeApp();
+  };
 
   try {
     await Auth.verify(request);
 
-    const result = await User.getPaymentMethods(request);
+    const result = await Payment.getPaymentMethods(request);
 
     response.send(Response.success(result));
   }

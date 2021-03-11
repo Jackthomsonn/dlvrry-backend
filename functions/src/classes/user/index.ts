@@ -25,16 +25,8 @@ export class User implements IUser {
 
   static getConverter() {
     return {
-      toFirestore({ name, email, account_type, connected_account_id, account_link_url, verification_status, cancelled_jobs, verified, customer_id, mode, id }: User): admin.firestore.DocumentData {
-        return { name, email, account_type, connected_account_id, account_link_url, verification_status, cancelled_jobs, verified, customer_id, mode, id };
-      },
-      fromFirestore(
-        snapshot: admin.firestore.QueryDocumentSnapshot<User>
-      ): User {
-        const { name, email, account_type, connected_account_id, account_link_url, verification_status, cancelled_jobs, verified, customer_id, mode, id } = snapshot.data();
-
-        return new User(name, email, account_type, connected_account_id, account_link_url, verification_status, cancelled_jobs, verified, customer_id, mode, id);
-      },
+      toFirestore(user: User): admin.firestore.DocumentData { return user },
+      fromFirestore(snapshot: admin.firestore.QueryDocumentSnapshot<User>) { return snapshot.data() },
     }
   }
 
@@ -150,35 +142,6 @@ export class User implements IUser {
     return Promise.resolve(account_links.url);
   }
 
-  static async addPaymentMethod(request: functions.Request) {
-    const payment_method_id: any = request.query.id;
-    const customer_id: any = request.query.customer_id;
-
-    await stripe.paymentMethods.attach(payment_method_id, { customer: customer_id });
-
-    await stripe.customers.update(customer_id, {
-      invoice_settings: {
-        default_payment_method: payment_method_id,
-      },
-    });
-
-    const paymentIntent = await stripe.setupIntents.create({
-      payment_method: payment_method_id,
-      customer: customer_id,
-      confirm: true,
-    });
-
-    if (paymentIntent.next_action) {
-      return Promise.resolve({
-        completed: false,
-        payment_method: paymentIntent.payment_method,
-        client_secret: paymentIntent.client_secret,
-      });
-    } else {
-      return Promise.resolve({ completed: true });
-    }
-  }
-
   static async getConnectedAccountDetails(request: functions.Request) {
     const user = await User.getUser(request.body.id);
     const user_data = user.data();
@@ -190,25 +153,6 @@ export class User implements IUser {
 
       return Promise.resolve(account);
     }
-  }
-
-  static async getPaymentMethods(request: functions.Request) {
-    const paymentMethods = await stripe.paymentMethods.list({
-      customer: request.body.customer_id,
-      type: 'card',
-    });
-
-    const customer = <Stripe.Customer>await stripe.customers.retrieve(request.body.customer_id);
-
-    const result = paymentMethods.data.map(paymentMethod => {
-      return {
-        brand: paymentMethod.card?.brand,
-        last4: paymentMethod.card?.last4,
-        is_default_payment_method: customer.invoice_settings.default_payment_method === paymentMethod.id,
-      }
-    });
-
-    return Promise.resolve(result);
   }
 
   static async refreshAccountLink(request: functions.Request) {

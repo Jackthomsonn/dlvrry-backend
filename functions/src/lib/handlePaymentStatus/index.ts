@@ -8,10 +8,12 @@ import { JobStatus } from 'dlvrry-common';
 import Stripe from 'stripe';
 
 export const handlePaymentStatus = functions.https.onRequest(async (request, response) => {
-  if (!admin.apps.length) admin.initializeApp();
+  if (!admin.apps.length) {
+    admin.initializeApp();
+  };
 
   try {
-    Auth.verifyWebhook(request);
+    Auth.verifyWebhook(request, functions.config().dlvrry.payment_status_secret);
 
     const onboardingEvent: Stripe.Event = request.body;
     const object = <Stripe.PaymentIntent>onboardingEvent.data.object;

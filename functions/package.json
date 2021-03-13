@@ -21,7 +21,7 @@
     "axios": "^0.21.0",
     "cors": "^2.8.5",
     "cryptr": "^6.0.2",
-    "dlvrry-common": "0.0.18",
+    "dlvrry-common": "0.0.22",
     "express": "^4.17.1",
     "express-jwt": "^6.0.0",
     "express-jwt-authz": "^2.4.1",

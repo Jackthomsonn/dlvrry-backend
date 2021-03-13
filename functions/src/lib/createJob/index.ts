@@ -1,12 +1,15 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
-import { Auth } from '../../classes/auth';
+import { FirebaseAuthStrategy } from './../../classes/firebaseAuthStrategy/index';
 import FirebaseFunctionsRateLimiter from "firebase-functions-rate-limiter";
-import { Job } from '../../classes/job';
+import { Job } from './../../classes/job/index';
 import { Response } from './../../classes/response/index';
 
 export const createJob = functions.https.onRequest(async (request, response) => {
+  const job = new Job();
+  const auth = new FirebaseAuthStrategy();
+
   if (!admin.apps.length) {
     admin.initializeApp();
   };
@@ -21,11 +24,11 @@ export const createJob = functions.https.onRequest(async (request, response) => 
   );
 
   try {
-    await Auth.verify(request);
+    await auth.verify(request);
 
     await limiter.rejectOnQuotaExceededOrRecordUsage();
 
-    const result = await Job.createJob(request.body.job, request.body.rider_id);
+    const result = await job.createJob(request.body.job, request.body.rider_id);
 
     response.send(Response.success(result));
   }

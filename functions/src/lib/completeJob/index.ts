@@ -1,19 +1,22 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
-import { Auth } from '../../classes/auth';
-import { Job } from '../../classes/job';
+import { FirebaseAuthStrategy } from './../../classes/firebaseAuthStrategy/index';
+import { Job } from './../../classes/job/index';
 import { Response } from './../../classes/response/index';
 
 export const completeJob = functions.https.onRequest(async (request, response) => {
+  const job = new Job();
+  const auth = new FirebaseAuthStrategy();
+
   if (!admin.apps.length) {
     admin.initializeApp();
   };
 
   try {
-    const token = await Auth.verify(request);
+    const token = await auth.verify(request);
 
-    await Job.completeJob(request.body.job, token);
+    await job.completeJob(request.body.job, token);
 
     response.send(Response.success());
   }

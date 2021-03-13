@@ -13,6 +13,8 @@ if (!admin.apps.length) {
   admin.initializeApp();
 }
 
+const job = new Job();
+
 const app = express();
 
 const jwtCheck = jwt({
@@ -32,7 +34,7 @@ const limiter = FirebaseFunctionsRateLimiter.withFirestoreBackend(
     name: 'external_job_creation_limiter',
     maxCalls: 100,
     periodSeconds: 10,
-    
+
   },
   admin.firestore()
 );
@@ -41,7 +43,7 @@ app.get('/', jwtCheck, jwtauthz([ 'create:job' ]), async (request, response) => 
   try {
     await limiter.rejectOnQuotaExceededOrRecordUsage();
 
-    const result = await Job.createJob(request.body.job, <string>request.headers[ 'user_id' ]);
+    const result = await job.createJob(request.body.job, <string>request.headers[ 'user_id' ]);
 
     response.send(Response.success(result));
   } catch (e) {

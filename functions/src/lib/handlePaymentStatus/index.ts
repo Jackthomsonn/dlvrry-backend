@@ -1,4 +1,4 @@
-import { Auth } from './../../classes/auth/index';
+import { StripeAuthStrategy } from './../../classes/stripeAuthStrategy/index';
 import { Response } from './../../classes/response/index';
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
@@ -8,17 +8,20 @@ import { JobStatus } from 'dlvrry-common';
 import Stripe from 'stripe';
 
 export const handlePaymentStatus = functions.https.onRequest(async (request, response) => {
+  const job = new Job();
+  const auth = new StripeAuthStrategy();
+
   if (!admin.apps.length) {
     admin.initializeApp();
   };
 
   try {
-    Auth.verifyWebhook(request, functions.config().dlvrry.payment_status_secret);
+    auth.verify(request, functions.config().dlvrry.payment_status_secret);
 
     const onboardingEvent: Stripe.Event = request.body;
     const object = <Stripe.PaymentIntent>onboardingEvent.data.object;
 
-    await Job.updateJob(object.metadata.id, { charge_id: object.charges.data[ 0 ].id, payment_captured: true, status: JobStatus.PENDING });
+    await job.update(object.metadata.id, { charge_id: object.charges.data[ 0 ].id, payment_captured: true, status: JobStatus.PENDING });
 
     response.send(Response.success());
   } catch (e) {

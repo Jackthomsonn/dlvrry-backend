@@ -1,4 +1,7 @@
 functions/*.log
 functions/.runtimeconfig.json
 functions/node_modules
+functions/**/*.js
+functions/**/*.js.map
+functions/seed
 .vscode

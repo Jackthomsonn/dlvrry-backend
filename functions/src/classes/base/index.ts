@@ -1,6 +1,6 @@
 import * as admin from 'firebase-admin';
 
-export class Base<T> {
+export class Crud<T> {
   constructor(private collectionName: string) { }
 
   save(data: T) {
@@ -20,7 +20,7 @@ export class Base<T> {
       .get();
   }
 
-  query(query: { field: string, operation: FirebaseFirestore.WhereFilterOp, value: string }): Promise<FirebaseFirestore.QuerySnapshot<T>> {
+  getWhere(query: { field: string, operation: FirebaseFirestore.WhereFilterOp, value: string }): Promise<FirebaseFirestore.QuerySnapshot<T>> {
     return <Promise<FirebaseFirestore.QuerySnapshot<T>>>admin
       .firestore()
       .collection(this.collectionName)
@@ -40,7 +40,21 @@ export class Base<T> {
       .firestore()
       .collection(this.collectionName)
       .doc(id)
-      .update(data);
+      .set(data, { merge: true });
+  }
+
+  async updateWhere(query: { field: string, operation: FirebaseFirestore.WhereFilterOp, value?: string }, data: Partial<T>): Promise<void> {
+    const doc = await admin
+      .firestore()
+      .collection(this.collectionName)
+      .where(query.field, query.operation, query.value)
+      .get();
+
+    for (const document of doc.docs) {
+      await document.ref.set(data, { merge: true });
+    }
+
+    return Promise.resolve();
   }
 
   remove(id: string): Promise<FirebaseFirestore.WriteResult> {

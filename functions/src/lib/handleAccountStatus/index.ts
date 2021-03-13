@@ -1,4 +1,4 @@
-import { Auth } from './../../classes/auth/index';
+import { StripeAuthStrategy } from './../../classes/stripeAuthStrategy/index';
 import { Response } from './../../classes/response/index';
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
@@ -8,12 +8,15 @@ import { User } from './../../classes/user/index';
 import { VerificationStatus } from 'dlvrry-common';
 
 export const handleAccountStatus = functions.https.onRequest(async (request, response) => {
+  const user = new User();
+  const auth = new StripeAuthStrategy();
+
   if (!admin.apps.length) {
     admin.initializeApp();
   };
 
   try {
-    Auth.verifyWebhook(request, functions.config().dlvrry.account_status_secret);
+    auth.verify(request, functions.config().dlvrry.account_status_secret);
 
     const onboardingEvent: Stripe.Event = request.body;
     const object = <Stripe.Account>onboardingEvent.data.object;
@@ -57,20 +60,20 @@ export const handleAccountStatus = functions.https.onRequest(async (request, res
     ];
 
     const disabled_reason = object.requirements?.disabled_reason;
-    const verification_status = possible_disabled_reasons.find(reason => reason.code === disabled_reason);
+    const verification_status = possible_disabled_reasons.find(reason => reason.code === disabled_reason) || { status: VerificationStatus.OTHER };
 
     if (disabled_reason !== null) {
-      await User.updateUserWhere({ verification_status: verification_status?.status }, {
-        whereField: 'connected_account_id',
-        whereOp: '==',
-        whereValue: onboardingEvent.account,
-      });
+      await user.updateWhere({
+        field: 'connected_account_id',
+        operation: '==',
+        value: onboardingEvent.account,
+      }, { verification_status: verification_status.status });
     } else {
-      await User.updateUserWhere({ verification_status: VerificationStatus.COMPLETED }, {
-        whereField: 'connected_account_id',
-        whereOp: '==',
-        whereValue: onboardingEvent.account,
-      });
+      await user.updateWhere({
+        field: 'connected_account_id',
+        operation: '==',
+        value: onboardingEvent.account,
+      }, { verification_status: VerificationStatus.COMPLETE });
     }
 
     response.send(Response.success());

@@ -1,14 +1,13 @@
 import * as functions from 'firebase-functions';
 
 import Stripe from 'stripe';
-import { User } from './../user/index';
-import { IJob } from 'dlvrry-common';
+import { IJob, IUser } from 'dlvrry-common';
 import { UserNotFound } from '../../errors/userNotFound';
 
 const stripe: Stripe = require('stripe')(functions.config().dlvrry.stripe_secret);
 
 export class Payment {
-  static async create(job: IJob, owner_doc: User) {
+  static async create(job: IJob, owner_doc: IUser) {
     const stripe_customer: any = await stripe.customers.retrieve(owner_doc.customer_id);
     const customer = <Stripe.Customer>stripe_customer;
 
@@ -20,13 +19,13 @@ export class Payment {
       confirm: true,
       off_session: true,
       metadata: {
-        id: job?.id || '',
+        id: job.id,
       },
     });
   }
 
-  static async transferFunds(job: IJob, rider_doc: User) {
-    if (!rider_doc?.id) {
+  static async transferFunds(job: IJob, rider_doc: IUser | undefined) {
+    if (!rider_doc?.connected_account_id) {
       throw new UserNotFound();
     }
 

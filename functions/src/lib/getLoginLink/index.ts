@@ -1,19 +1,22 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
-import { Auth } from '../../classes/auth';
+import { FirebaseAuthStrategy } from '../../classes/firebaseAuthStrategy';
 import { Response } from './../../classes/response/index';
-import { User } from '../../classes/user/index';
+import { User } from './../../classes/user/index';
 
 export const getLoginLink = functions.https.onRequest(async (request, response) => {
+  const user = new User();
+  const auth = new FirebaseAuthStrategy();
+
   if (!admin.apps.length) {
     admin.initializeApp();
   };
 
   try {
-    await Auth.verify(request);
+    await auth.verify(request);
 
-    const loginLink = await User.getUserLoginLink(request.body.id);
+    const loginLink = await user.getUserLoginLink(request.body.id);
 
     response.send(Response.success(loginLink));
   }

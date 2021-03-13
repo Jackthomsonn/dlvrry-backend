@@ -7,7 +7,9 @@ import { User } from './../../classes/user/index';
 
 const stripe: Stripe = require('stripe')(functions.config().dlvrry.stripe_secret);
 
-export const createUser = functions.auth.user().onCreate(async (user) => {
+export const createUser = functions.auth.user().onCreate(async (user_data) => {
+  const user = new User();
+
   if (!admin.apps.length) {
     admin.initializeApp();
   };
@@ -24,13 +26,13 @@ export const createUser = functions.auth.user().onCreate(async (user) => {
   await limiter.rejectOnQuotaExceededOrRecordUsage();
 
   try {
-    await User.createUser(user);
+    await user.createUser(user_data);
 
     const customer = await stripe.customers.create({
-      email: user.email,
+      email: user_data.email,
     });
 
-    await User.updateUser(user.uid, {
+    await user.update(user_data.uid, {
       customer_id: customer.id,
     });
 

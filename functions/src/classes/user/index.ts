@@ -1,31 +1,33 @@
-import * as admin from 'firebase-admin';
-import * as functions from 'firebase-functions';
+import * as admin from "firebase-admin";
+import * as functions from "firebase-functions";
 
-import { AccountType, IUser } from 'dlvrry-common';
+import { AccountType, IUser } from "dlvrry-common";
 
-import { Crud } from './../base/index';
-import Stripe from 'stripe';
-import { UserNotFound } from '../../errors/userNotFound';
+import { Crud } from "./../base/index";
+import Stripe from "stripe";
+import { UserNotFound } from "../../errors/userNotFound";
 
-const stripe: Stripe = require('stripe')(functions.config().dlvrry.stripe_secret);
+const stripe: Stripe = require("stripe")(
+  functions.config().dlvrry[
+    process.env.FUNCTIONS_EMULATOR === "true" ? "test" : "prod"
+  ].stripe_secret
+);
 
 export class User extends Crud<IUser> {
   constructor() {
-    super('users');
+    super("users");
   }
 
-  createUser(user: admin.auth.UserRecord): Promise<admin.firestore.WriteResult> {
-    return admin
-      .firestore()
-      .collection('users')
-      .doc(user.uid)
-      .create({
-        id: user.uid,
-        name: user.displayName,
-        email: user.email,
-        account_type: AccountType.NONE,
-        verified: false,
-      });
+  createUser(
+    user: admin.auth.UserRecord
+  ): Promise<admin.firestore.WriteResult> {
+    return admin.firestore().collection("users").doc(user.uid).create({
+      id: user.uid,
+      name: user.displayName,
+      email: user.email,
+      account_type: AccountType.NONE,
+      verified: false,
+    });
   }
 
   async getUserLoginLink(id: string) {
@@ -36,7 +38,9 @@ export class User extends Crud<IUser> {
       throw new UserNotFound();
     }
 
-    const account = await stripe.accounts.retrieve(user_doc_data.connected_account_id);
+    const account = await stripe.accounts.retrieve(
+      user_doc_data.connected_account_id
+    );
 
     return await stripe.accounts.createLoginLink(account.id);
   }
@@ -56,17 +60,17 @@ export class User extends Crud<IUser> {
     }
 
     const account = await stripe.accounts.create({
-      type: 'express',
+      type: "express",
       email: email,
-      country: 'gb',
-      default_currency: 'gbp',
+      country: "gb",
+      default_currency: "gbp",
     });
 
     const account_links = await stripe.accountLinks.create({
       account: account.id,
-      refresh_url: `${ refreshUrl }?account=${ account.id }`,
+      refresh_url: `${refreshUrl}?account=${account.id}`,
       return_url: returnUrl,
-      type: 'account_onboarding',
+      type: "account_onboarding",
     });
 
     await this.update(id, {
@@ -82,10 +86,12 @@ export class User extends Crud<IUser> {
     const user_data = user.data();
 
     if (!user_data?.connected_account_id) {
-      return Promise.reject({ status: 404, message: 'No user found' });
+      return Promise.reject({ status: 404, message: "No user found" });
     }
 
-    const account = await stripe.accounts.retrieve(user_data.connected_account_id);
+    const account = await stripe.accounts.retrieve(
+      user_data.connected_account_id
+    );
 
     return Promise.resolve(account);
   }
@@ -95,9 +101,16 @@ export class User extends Crud<IUser> {
 
     const accountLinks = await stripe.accountLinks.create({
       account: params.account,
-      refresh_url: `${ functions.config().dlvrry.functions_url }/refreshAccountLink?account=${ params.account }`,
-      return_url: functions.config().dlvrry.return_url,
-      type: 'account_onboarding',
+      refresh_url: `${
+        functions.config().dlvrry[
+          process.env.FUNCTIONS_EMULATOR === "true" ? "test" : "prod"
+        ].functions_url
+      }/refreshAccountLink?account=${params.account}`,
+      return_url:
+        functions.config().dlvrry[
+          process.env.FUNCTIONS_EMULATOR === "true" ? "test" : "prod"
+        ].return_url,
+      type: "account_onboarding",
     });
 
     return Promise.resolve(accountLinks.url);

@@ -3,10 +3,13 @@ import * as functions from "firebase-functions";
 
 import { FirebaseFunctionsRateLimiter } from "firebase-functions-rate-limiter";
 import Stripe from "stripe";
+
 import { User } from "./../../classes/user/index";
 
 const stripe: Stripe = require("stripe")(
-  functions.config().dlvrry.stripe_secret
+  functions.config().dlvrry[
+    process.env.FUNCTIONS_EMULATOR === "true" ? "test" : "prod"
+  ].stripe_secret
 );
 
 export const createUser = functions.auth.user().onCreate(async (user_data) => {

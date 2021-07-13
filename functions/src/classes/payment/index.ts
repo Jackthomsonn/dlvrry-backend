@@ -1,21 +1,27 @@
-import * as functions from 'firebase-functions';
+import * as functions from "firebase-functions";
 
-import Stripe from 'stripe';
-import { IJob, IUser } from 'dlvrry-common';
-import { UserNotFound } from '../../errors/userNotFound';
+import Stripe from "stripe";
+import { IJob, IUser } from "dlvrry-common";
+import { UserNotFound } from "../../errors/userNotFound";
 
-const stripe: Stripe = require('stripe')(functions.config().dlvrry.stripe_secret);
+const stripe: Stripe = require("stripe")(
+  functions.config().dlvrry[
+    process.env.FUNCTIONS_EMULATOR === "true" ? "test" : "prod"
+  ].stripe_secret
+);
 
 export class Payment {
   static async create(job: IJob, owner_doc: IUser) {
-    const stripe_customer: any = await stripe.customers.retrieve(owner_doc.customer_id);
+    const stripe_customer: any = await stripe.customers.retrieve(
+      owner_doc.customer_id
+    );
     const customer = <Stripe.Customer>stripe_customer;
 
     return stripe.paymentIntents.create({
       amount: job.cost,
       payment_method: <string>customer.invoice_settings.default_payment_method,
       customer: owner_doc.customer_id,
-      currency: 'gbp',
+      currency: "gbp",
       confirm: true,
       off_session: true,
       metadata: {
@@ -31,7 +37,7 @@ export class Payment {
 
     return stripe.transfers.create({
       source_transaction: job.charge_id,
-      currency: 'gbp',
+      currency: "gbp",
       amount: job.payout,
       destination: rider_doc.connected_account_id,
     });
@@ -40,18 +46,21 @@ export class Payment {
   static async getPaymentMethods(request: functions.Request) {
     const paymentMethods = await stripe.paymentMethods.list({
       customer: request.body.customer_id,
-      type: 'card',
+      type: "card",
     });
 
-    const customer = <Stripe.Customer>await stripe.customers.retrieve(request.body.customer_id);
+    const customer = <Stripe.Customer>(
+      await stripe.customers.retrieve(request.body.customer_id)
+    );
 
-    const result = paymentMethods.data.map(paymentMethod => {
+    const result = paymentMethods.data.map((paymentMethod) => {
       return {
         id: paymentMethod.id,
         brand: paymentMethod.card?.brand,
         last4: paymentMethod.card?.last4,
-        is_default_payment_method: customer.invoice_settings.default_payment_method === paymentMethod.id,
-      }
+        is_default_payment_method:
+          customer.invoice_settings.default_payment_method === paymentMethod.id,
+      };
     });
 
     return Promise.resolve(result);
@@ -61,7 +70,9 @@ export class Payment {
     const payment_method_id: any = request.query.id;
     const customer_id: any = request.query.customer_id;
 
-    await stripe.paymentMethods.attach(payment_method_id, { customer: customer_id });
+    await stripe.paymentMethods.attach(payment_method_id, {
+      customer: customer_id,
+    });
 
     await this.setDefaultPaymentMethod(customer_id, payment_method_id);
 
@@ -82,7 +93,10 @@ export class Payment {
     }
   }
 
-  static async setDefaultPaymentMethod(customer_id: string, payment_method_id: string) {
+  static async setDefaultPaymentMethod(
+    customer_id: string,
+    payment_method_id: string
+  ) {
     await stripe.customers.update(customer_id, {
       invoice_settings: {
         default_payment_method: payment_method_id,

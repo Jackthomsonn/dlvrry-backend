@@ -12,9 +12,11 @@ import { IJob, IUser, JobStatus } from "dlvrry-common";
 import * as geocoder from "node-geocoder";
 import moment = require("moment");
 import * as functions from "firebase-functions";
+import { Push } from "../push";
 
 export class Job extends Crud<IJob> {
   private user = new User();
+  private push = new Push();
 
   constructor() {
     super("jobs");
@@ -107,6 +109,15 @@ export class Job extends Crud<IJob> {
         payment_captured: true,
         status: JobStatus.PENDING,
       });
+
+      console.log("Sending..");
+
+      await this.push.broadcastNotification(
+        "A new job was created on Dlvrry!",
+        "New job alert!"
+      );
+
+      console.log("Sent");
 
       return Promise.resolve({
         completed: true,
@@ -225,7 +236,10 @@ export class Job extends Crud<IJob> {
   async getLocationName(lat: number, lon: number) {
     const geocode = geocoder({
       provider: "google",
-      apiKey: functions.config().dlvrry.g_api_key,
+      apiKey:
+        functions.config().dlvrry[
+          process.env.FUNCTIONS_EMULATOR === "true" ? "test" : "prod"
+        ].g_api_key,
     });
 
     return geocode.reverse({ lat, lon });

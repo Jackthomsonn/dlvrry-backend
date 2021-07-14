@@ -13,10 +13,12 @@ import * as geocoder from "node-geocoder";
 import moment = require("moment");
 import * as functions from "firebase-functions";
 import { Push } from "../push";
+import { Phone } from "../phone";
 
 export class Job extends Crud<IJob> {
   private user = new User();
   private push = new Push();
+  private phone = new Phone();
 
   constructor() {
     super("jobs");
@@ -53,6 +55,23 @@ export class Job extends Crud<IJob> {
     }
 
     await Payment.transferFunds(job_doc_data, rider_doc_data);
+
+    if (job_doc_data.phone_number) {
+      try {
+        await this.phone.send(
+          job_doc_data.phone_number,
+          "Your parcel has been delivered"
+        );
+      } catch (e) {
+        console.log(
+          `Send message: Error sending message, reason ${JSON.stringify(
+            e,
+            null,
+            2
+          )}`
+        );
+      }
+    }
 
     return await this.update(job.id, {
       id: job.id,
@@ -110,14 +129,10 @@ export class Job extends Crud<IJob> {
         status: JobStatus.PENDING,
       });
 
-      console.log("Sending..");
-
       await this.push.broadcastNotification(
-        "A new job was created on Dlvrry!",
-        "New job alert!"
+        "A new job has been created in your area 😀",
+        "New job available"
       );
-
-      console.log("Sent");
 
       return Promise.resolve({
         completed: true,

@@ -68,7 +68,7 @@ export class Payment {
 
   static async addPaymentMethod(request: functions.Request) {
     const payment_method_id: any = request.query.id;
-    const customer_id: any = request.query.customer_id;
+    const customer_id: any = (<string>request.query.customer_id).split("?")[0];
 
     await stripe.paymentMethods.attach(payment_method_id, {
       customer: customer_id,

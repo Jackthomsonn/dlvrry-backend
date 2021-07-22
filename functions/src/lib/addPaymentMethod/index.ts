@@ -22,7 +22,13 @@ export const addPaymentMethod = functions.https.onRequest(
     }
 
     try {
-      await auth.verify(request);
+      const token = request.url.split("?")[2];
+
+      await auth.verify(<any>{
+        headers: {
+          authorization: token,
+        },
+      });
 
       const result = await Payment.addPaymentMethod(request);
 

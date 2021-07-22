@@ -8,13 +8,17 @@ export class Push {
     this.expo = new Expo();
   }
 
-  async sendNotification(token: string, message: string, title: string) {
-    const chunks = this.expo.chunkPushNotifications([
-      { to: token, sound: "default", body: message, title: title, data: {} },
-    ]);
-
+  async sendNotification(recipient: string, message: string, title: string) {
     try {
-      await this.expo.sendPushNotificationsAsync(chunks[0]);
+      await this.expo.sendPushNotificationsAsync([
+        {
+          to: recipient,
+          sound: "default",
+          body: message,
+          title: title,
+          data: {},
+        },
+      ]);
     } catch (error) {
       console.error(error);
     }
@@ -27,7 +31,7 @@ export class Push {
 
     const users = await user.list();
 
-    const tokens = users.docs.map((u) => u.data().push_token);
+    const tokens = users.docs.map((userDoc) => userDoc.data().push_token);
 
     for (const token of tokens) {
       if (!Expo.isExpoPushToken(token)) {

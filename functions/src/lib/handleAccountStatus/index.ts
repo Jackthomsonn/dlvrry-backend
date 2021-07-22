@@ -17,12 +17,7 @@ export const handleAccountStatus = functions.https.onRequest(
     }
 
     try {
-      auth.verify(
-        request,
-        functions.config().dlvrry[
-          process.env.FUNCTIONS_EMULATOR === "true" ? "test" : "prod"
-        ].account_status_secret
-      );
+      auth.verify(request);
 
       const onboardingEvent: Stripe.Event = request.body;
       const object = <Stripe.Account>onboardingEvent.data.object;

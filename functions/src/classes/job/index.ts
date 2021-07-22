@@ -9,11 +9,11 @@ import { JobTaken } from "./../../errors/jobTaken";
 import Stripe from "stripe";
 import { UserNotFound } from "./../../errors/userNotFound";
 import { IJob, IUser, JobStatus } from "dlvrry-common";
-import * as geocoder from "node-geocoder";
 import moment = require("moment");
-import * as functions from "firebase-functions";
 import { Push } from "../push";
 import { Phone } from "../phone";
+import { RiderSuspended } from "../../errors/riderSuspended";
+import { UserNotVerified } from "../../errors/userNotVerified";
 
 export class Job extends Crud<IJob> {
   private user = new User();
@@ -82,22 +82,24 @@ export class Job extends Crud<IJob> {
   async createJob(job: IJob, owner_id: string) {
     try {
       const business = await this.user.get(owner_id);
-      const business_data = business.data();
+      const business_doc_data = business.data();
 
-      if (!business_data) {
+      if (!business_doc_data) {
         throw new UserNotFound();
+      }
+
+      if (!business_doc_data?.verified) {
+        throw new UserNotVerified();
       }
 
       const payout = await this.calculateFee(job.cost);
 
       this.constructJobObject(
         job,
-        await this.getLocationName(
-          job.customer_location.latitude,
-          job.customer_location.longitude
-        ),
+        job.customer_location_name,
+        job.pickup_location_name,
         owner_id,
-        business_data,
+        business_doc_data,
         payout
       );
 
@@ -185,12 +187,49 @@ export class Job extends Crud<IJob> {
       const job_doc = await this.get(id);
       const job_doc_data = job_doc.data();
 
+      const rider_doc = await this.user.get(rider_id);
+      const rider_doc_data = rider_doc.data();
+
+      const remoteConfig = await admin.remoteConfig().getTemplate();
+
+      const cancelledJobLimit: number = (
+        remoteConfig.parameters.cancelled_job_limit.defaultValue as any
+      ).value;
+
       if (!job_doc_data) {
         throw new JobNotFound();
       }
 
       if (job_doc_data.status === JobStatus.IN_PROGRESS) {
         throw new JobTaken();
+      }
+
+      if (
+        ((rider_doc_data as IUser).cancelled_jobs as number) >=
+        cancelledJobLimit
+      ) {
+        throw new RiderSuspended();
+      }
+
+      if (!rider_doc_data?.verified) {
+        throw new UserNotVerified();
+      }
+
+      if (job_doc_data.phone_number) {
+        try {
+          await this.phone.send(
+            job_doc_data.phone_number,
+            "Your parcel has been picked up and is on its way to you!"
+          );
+        } catch (e) {
+          console.log(
+            `Send message: Error sending message, reason ${JSON.stringify(
+              e,
+              null,
+              2
+            )}`
+          );
+        }
       }
 
       return await this.update(job_doc_data.id, {
@@ -225,9 +264,49 @@ export class Job extends Crud<IJob> {
 
       await this.update(id, { status: JobStatus.CANCELLED_BY_RIDER });
 
-      await this.user.update(rider_id, {
-        cancelled_jobs: (user_doc_data.cancelled_jobs || 0) + 1,
-      });
+      if (!user_doc_data.last_cancelled_job_date) {
+        await this.user.update(rider_id, {
+          last_cancelled_job_date: moment.utc().toString(),
+          cancelled_jobs: (user_doc_data.cancelled_jobs || 0) + 1,
+        });
+      } else {
+        const hoursBetweenNowAndLastCancelledDate = moment().diff(
+          user_doc_data.last_cancelled_job_date,
+          "seconds"
+        );
+
+        if (hoursBetweenNowAndLastCancelledDate < 10) {
+          await this.user.update(rider_id, {
+            last_cancelled_job_date: moment.utc().toString(),
+            cancelled_jobs: (user_doc_data.cancelled_jobs || 0) + 1,
+          });
+        } else {
+          await this.user.update(rider_id, {
+            last_cancelled_job_date: moment.utc().toString(),
+            cancelled_jobs:
+              user_doc_data.cancelled_jobs === 0
+                ? 0
+                : (user_doc_data.cancelled_jobs as number) - 1,
+          });
+        }
+      }
+
+      if (job_doc_data.phone_number) {
+        try {
+          await this.phone.send(
+            job_doc_data.phone_number,
+            "Your delivery has been cancelled by the rider. We are really sorry about this, we are finding you a new rider right now"
+          );
+        } catch (e) {
+          console.log(
+            `Send message: Error sending message, reason ${JSON.stringify(
+              e,
+              null,
+              2
+            )}`
+          );
+        }
+      }
 
       return Promise.resolve();
     } else {
@@ -248,29 +327,19 @@ export class Job extends Crud<IJob> {
     return Promise.resolve(Number(amountAfterPayoutFee.toFixed(0)));
   }
 
-  async getLocationName(lat: number, lon: number) {
-    const geocode = geocoder({
-      provider: "google",
-      apiKey:
-        functions.config().dlvrry[
-          process.env.FUNCTIONS_EMULATOR === "true" ? "test" : "prod"
-        ].g_api_key,
-    });
-
-    return geocode.reverse({ lat, lon });
-  }
-
   constructJobObject(
     job: IJob,
-    locationName: geocoder.Entry[],
+    customerLocationName: string,
+    pickupLocationName: string,
     owner_id: string,
-    business_data: IUser,
+    business_doc_data: IUser,
     payout: number
   ) {
-    job.customer_location_name = `${locationName[0].streetNumber}, ${locationName[0].streetName}`;
+    job.customer_location_name = customerLocationName;
+    job.pickup_location_name = pickupLocationName;
     job.status = JobStatus.AWAITING_PAYMENT;
     job.owner_id = owner_id;
-    job.owner_name = business_data.name;
+    job.owner_name = business_doc_data.name;
     job.pickup_location = new admin.firestore.GeoPoint(
       job.pickup_location.latitude,
       job.pickup_location.longitude

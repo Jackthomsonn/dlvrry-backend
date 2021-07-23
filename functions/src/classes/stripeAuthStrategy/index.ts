@@ -10,15 +10,10 @@ const stripe: Stripe = require("stripe")(
 );
 
 export class StripeAuthStrategy implements Auth<void, any> {
-  verify(request: any) {
+  verify(request: any, secret: string) {
     const signature = <string>request.headers["stripe-signature"];
 
     try {
-      const secret =
-        functions.config().dlvrry[
-          process.env.FUNCTIONS_EMULATOR === "true" ? "test" : "prod"
-        ].payment_status_secret;
-
       stripe.webhooks.constructEvent(request["rawBody"], signature, secret);
     } catch (e) {
       throw new Unauthorized();

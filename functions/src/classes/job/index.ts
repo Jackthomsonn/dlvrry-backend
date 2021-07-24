@@ -131,11 +131,6 @@ export class Job extends Crud<IJob> {
         status: JobStatus.PENDING,
       });
 
-      await this.push.broadcastNotification(
-        "A new job has been created in your area 😀",
-        "New job available"
-      );
-
       return Promise.resolve({
         completed: true,
       });
@@ -217,10 +212,10 @@ export class Job extends Crud<IJob> {
 
       if (job_doc_data.phone_number) {
         try {
-          // await this.phone.send(
-          //   job_doc_data.phone_number,
-          //   "Your parcel has been picked up and is on its way to you!"
-          // );
+          await this.phone.send(
+            job_doc_data.phone_number,
+            "Your parcel has been picked up and is on its way to you!"
+          );
         } catch (e) {
           console.log(
             `Send message: Error sending message, reason ${JSON.stringify(

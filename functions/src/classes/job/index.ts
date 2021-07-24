@@ -10,14 +10,12 @@ import Stripe from "stripe";
 import { UserNotFound } from "./../../errors/userNotFound";
 import { IJob, IUser, JobStatus } from "dlvrry-common";
 import moment = require("moment");
-import { Push } from "../push";
 import { Phone } from "../phone";
 import { RiderSuspended } from "../../errors/riderSuspended";
 import { UserNotVerified } from "../../errors/userNotVerified";
 
 export class Job extends Crud<IJob> {
   private user = new User();
-  private push = new Push();
   private phone = new Phone();
 
   constructor() {

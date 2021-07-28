@@ -268,7 +268,16 @@ export class Job extends Crud<IJob> {
           "seconds"
         );
 
-        if (hoursBetweenNowAndLastCancelledDate < 10) {
+        const remoteConfig = await admin.remoteConfig().getTemplate();
+
+        const cancelled_job_time_limit_seconds: number = (
+          remoteConfig.parameters.cancelled_job_time_limit_seconds
+            .defaultValue as any
+        ).value;
+
+        if (
+          hoursBetweenNowAndLastCancelledDate < cancelled_job_time_limit_seconds
+        ) {
           await this.user.update(rider_id, {
             last_cancelled_job_date: moment.utc().toString(),
             cancelled_jobs: (user_doc_data.cancelled_jobs || 0) + 1,

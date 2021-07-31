@@ -6,6 +6,7 @@ import { AccountType, IUser } from "dlvrry-common";
 import { Crud } from "./../base/index";
 import Stripe from "stripe";
 import { UserNotFound } from "../../errors/userNotFound";
+import { Unauthorized } from "../../errors/unauthorized";
 
 const stripe: Stripe = require("stripe")(
   functions.config().dlvrry[
@@ -96,8 +97,18 @@ export class User extends Crud<IUser> {
     return Promise.resolve(account);
   }
 
-  async refreshAccountLink(request: functions.Request) {
+  async refreshAccountLink(
+    request: functions.Request,
+    token: admin.auth.DecodedIdToken
+  ) {
     const params: any = request.query;
+    const user = new User();
+    const user_data = await user.get(token.uid);
+    const user_doc_data = user_data.data();
+
+    if (user_doc_data?.connected_account_id !== request.query.account) {
+      throw new Unauthorized();
+    }
 
     const accountLinks = await stripe.accountLinks.create({
       account: params.account,

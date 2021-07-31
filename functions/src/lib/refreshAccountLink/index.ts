@@ -15,9 +15,9 @@ export const refreshAccountLink = functions.https.onRequest(
     }
 
     try {
-      await auth.verify(request);
+      const token = await auth.verify(request);
 
-      const accountLinkUrl = await user.refreshAccountLink(request);
+      const accountLinkUrl = await user.refreshAccountLink(request, token);
 
       response.redirect(accountLinkUrl);
     } catch (e) {

@@ -6,6 +6,7 @@ import * as functions from "firebase-functions";
 import { Stripe } from "stripe";
 import { User } from "./../../classes/user/index";
 import { VerificationStatus } from "dlvrry-common";
+import { get_env } from "../../helpers/env";
 
 export const handleAccountStatus = functions.https.onRequest(
   async (request, response) => {
@@ -17,10 +18,7 @@ export const handleAccountStatus = functions.https.onRequest(
     }
 
     try {
-      const secret =
-        functions.config().dlvrry[
-          process.env.FUNCTIONS_EMULATOR === "true" ? "test" : "prod"
-        ].account_status_secret;
+      const secret = functions.config().dlvrry[get_env()].account_status_secret;
 
       auth.verify(request, secret);
 

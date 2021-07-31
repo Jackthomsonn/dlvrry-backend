@@ -2,11 +2,10 @@ import { Unauthorized } from "./../../errors/unauthorized";
 import { Auth } from "../auth";
 import Stripe from "stripe";
 import * as functions from "firebase-functions";
+import { get_env } from "../../helpers/env";
 
 const stripe: Stripe = require("stripe")(
-  functions.config().dlvrry[
-    process.env.FUNCTIONS_EMULATOR === "true" ? "test" : "prod"
-  ].stripe_secret
+  functions.config().dlvrry[get_env()].stripe_secret
 );
 
 export class StripeAuthStrategy implements Auth<void, any> {

@@ -7,11 +7,12 @@ import { Crud } from "./../base/index";
 import Stripe from "stripe";
 import { UserNotFound } from "../../errors/userNotFound";
 import { Unauthorized } from "../../errors/unauthorized";
+import { get_env } from "../../helpers/env";
+
+const environment = get_env();
 
 const stripe: Stripe = require("stripe")(
-  functions.config().dlvrry[
-    process.env.FUNCTIONS_EMULATOR === "true" ? "test" : "prod"
-  ].stripe_secret
+  functions.config().dlvrry[environment].stripe_secret
 );
 
 export class User extends Crud<IUser> {
@@ -113,14 +114,9 @@ export class User extends Crud<IUser> {
     const accountLinks = await stripe.accountLinks.create({
       account: params.account,
       refresh_url: `${
-        functions.config().dlvrry[
-          process.env.FUNCTIONS_EMULATOR === "true" ? "test" : "prod"
-        ].functions_url
+        functions.config().dlvrry[environment].functions_url
       }/refreshAccountLink?account=${params.account}`,
-      return_url:
-        functions.config().dlvrry[
-          process.env.FUNCTIONS_EMULATOR === "true" ? "test" : "prod"
-        ].return_url,
+      return_url: functions.config().dlvrry[environment].return_url,
       type: "account_onboarding",
     });
 

@@ -6,6 +6,7 @@ import * as functions from "firebase-functions";
 import { Job } from "./../../classes/job/index";
 import { JobStatus } from "dlvrry-common";
 import Stripe from "stripe";
+import { get_env } from "../../helpers/env";
 
 export const handlePaymentStatus = functions.https.onRequest(
   async (request, response) => {
@@ -17,10 +18,7 @@ export const handlePaymentStatus = functions.https.onRequest(
     }
 
     try {
-      const secret =
-        functions.config().dlvrry[
-          process.env.FUNCTIONS_EMULATOR === "true" ? "test" : "prod"
-        ].payment_status_secret;
+      const secret = functions.config().dlvrry[get_env()].payment_status_secret;
 
       auth.verify(request, secret);
 

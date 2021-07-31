@@ -3,11 +3,10 @@ import * as functions from "firebase-functions";
 import Stripe from "stripe";
 import { IJob, IUser } from "dlvrry-common";
 import { UserNotFound } from "../../errors/userNotFound";
+import { get_env } from "../../helpers/env";
 
 const stripe: Stripe = require("stripe")(
-  functions.config().dlvrry[
-    process.env.FUNCTIONS_EMULATOR === "true" ? "test" : "prod"
-  ].stripe_secret
+  functions.config().dlvrry[get_env()].stripe_secret
 );
 
 export class Payment {

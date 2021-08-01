@@ -15,15 +15,10 @@ export class Phone {
   }
 
   async send(phone_number: string, message: string) {
-    // Localise UK only
-    const split_phone_number = phone_number.split("");
-
-    split_phone_number[0] = "44";
-
     await this.client.messages.create({
       body: message,
       from: "(786) 808-1083",
-      to: split_phone_number.join(""),
+      to: phone_number,
     });
   }
 }

@@ -20,16 +20,26 @@ export class User extends Crud<IUser> {
     super("users");
   }
 
-  createUser(
+  async createUser(
     user: admin.auth.UserRecord
   ): Promise<admin.firestore.WriteResult> {
-    return admin.firestore().collection("users").doc(user.uid).create({
-      id: user.uid,
-      name: user.displayName,
-      email: user.email,
-      account_type: AccountType.NONE,
-      verified: false,
-    });
+    const remoteConfig = await admin.remoteConfig().getTemplate();
+
+    return admin
+      .firestore()
+      .collection("users")
+      .doc(user.uid)
+      .create({
+        id: user.uid,
+        name: user.displayName,
+        email: user.email,
+        account_type: AccountType.NONE,
+        verified:
+          (
+            remoteConfig.parameters.initial_verification_status
+              .defaultValue as any
+          ).value === "true",
+      });
   }
 
   async getUserLoginLink(id: string) {

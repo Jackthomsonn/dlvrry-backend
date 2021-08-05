@@ -5,8 +5,9 @@ import { Job } from "../../classes/job";
 import { FirebaseAuthStrategy } from "./../../classes/firebaseAuthStrategy/index";
 import { Response } from "./../../classes/response/index";
 
-export const completeJob = functions.https.onRequest(
-  async (request, response) => {
+export const completeJob = functions
+  .runWith({ failurePolicy: true })
+  .https.onRequest(async (request, response) => {
     const job = new Job();
     const auth = new FirebaseAuthStrategy();
 
@@ -23,5 +24,4 @@ export const completeJob = functions.https.onRequest(
     } catch (e) {
       response.status(e.status ? e.status : 500).send(Response.fail(e));
     }
-  }
-);
+  });

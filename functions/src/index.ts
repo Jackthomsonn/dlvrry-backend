@@ -13,6 +13,7 @@ import { onboardUser } from "./lib/onboardUser";
 import { refreshAccountLink } from "./lib/refreshAccountLink/index";
 import { removePaymentMethod } from "./lib/removePaymentMethod/index";
 import { setDefaultPaymentMethod } from "./lib/setDefaultPaymentMethod/index";
+import { completeAddPaymentMethod } from "./lib/completeAddPaymentMethod/index";
 
 export {
   onboardUser,
@@ -30,4 +31,5 @@ export {
   cancelJob,
   setDefaultPaymentMethod,
   removePaymentMethod,
+  completeAddPaymentMethod,
 };

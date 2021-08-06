@@ -69,12 +69,6 @@ export class Payment {
     const payment_method_id: any = request.query.id;
     const customer_id: any = (<string>request.query.customer_id).split("?")[0];
 
-    await stripe.paymentMethods.attach(payment_method_id, {
-      customer: customer_id,
-    });
-
-    await this.setDefaultPaymentMethod(customer_id, payment_method_id);
-
     const paymentIntent = await stripe.setupIntents.create({
       payment_method: payment_method_id,
       customer: customer_id,
@@ -90,6 +84,17 @@ export class Payment {
     } else {
       return Promise.resolve({ completed: true });
     }
+  }
+
+  static async completeAddPaymentMethod(request: functions.Request) {
+    const payment_method_id: any = request.query.id;
+    const customer_id: any = (<string>request.query.customer_id).split("?")[0];
+
+    await stripe.paymentMethods.attach(payment_method_id, {
+      customer: customer_id,
+    });
+
+    await this.setDefaultPaymentMethod(customer_id, payment_method_id);
   }
 
   static async setDefaultPaymentMethod(
